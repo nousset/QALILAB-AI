@@ -18,7 +18,7 @@ load_dotenv()
 # --------------------------
 # Configuration Jira
 # --------------------------
-JIRA_BASE_URL = os.getenv("JIRA_BASE_URL","https://qalilab-ai.onrender.com")
+JIRA_BASE_URL = os.getenv("JIRA_BASE_URL","https:amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
