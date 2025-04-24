@@ -1,0 +1,58 @@
+{
+    "name": "Générateur de Cas de Test",
+    "description": "Génère automatiquement des cas de test à partir des user stories",
+    "key": "test-generator-app",
+    "baseUrl": "https://qalilab-ai.onrender.com",
+    "vendor": {
+      "name": "QALILAB-AI",
+      "url": "https://qalilab-ai.onrender.com"
+    },
+    "authentication": {
+      "type": "none"
+    },
+    "apiVersion": 1,
+    "modules": {
+      "webPanels": [
+        {
+          "key": "test-generator-panel",
+          "name": {
+            "value": "Générer des tests"
+          },
+          "location": "atl.jira.view.issue.right.context",
+          "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
+          "conditions": [
+            {
+              "condition": "entity_property_equal_to",
+              "params": {
+                "entity": "issue",
+                "propertyKey": "issuetype.name",
+                "objectName": "Story"
+              }
+            }
+          ],
+          "weight": 100
+        }
+      ],
+      "webItems": [
+        {
+          "key": "test-generator-button",
+          "name": {
+            "value": "Générer des tests"
+          },
+          "location": "operations-dropdown",
+          "url": "/jira-button?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&returnUrl={issue.url}",
+          "conditions": [
+            {
+              "condition": "entity_property_equal_to",
+              "params": {
+                "entity": "issue",
+                "propertyKey": "issuetype.name",
+                "objectName": "Story"
+              }
+            }
+          ],
+          "weight": 50
+        }
+      ]
+    }
+  }
