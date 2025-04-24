@@ -22,7 +22,7 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL","https://qalilab-ai.onrender.com")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
-BASE_URL = os.getenv("BASE_URL", "https://jirasecondprime.onrender.com")
+BASE_URL = os.getenv("BASE_URL", "https://qalilab-ai.onrender.com")
 
 # JWT Secret pour authentification Atlassian Connect
 JWT_SECRET = os.getenv("JWT_SECRET", "")
