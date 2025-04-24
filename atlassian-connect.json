@@ -26,11 +26,9 @@
             "condition": "user_is_logged_in"
           },
           {
-            "condition": "entity_property_equal_to",
+            "condition": "issue_type_is",
             "params": {
-              "entity": "issue",
-              "propertyKey": "issuetype.name",
-              "objectName": "Story"
+              "issueType": "Story"
             }
           }
         ]
@@ -50,11 +48,9 @@
             "condition": "user_is_logged_in"
           },
           {
-            "condition": "entity_property_equal_to",
+            "condition": "issue_type_is",
             "params": {
-              "entity": "issue",
-              "propertyKey": "issuetype.name",
-              "objectName": "Story"
+              "issueType": "Story"
             }
           }
         ]
@@ -72,11 +68,9 @@
             "condition": "user_is_logged_in"
           },
           {
-            "condition": "entity_property_equal_to",
+            "condition": "issue_type_is",
             "params": {
-              "entity": "issue",
-              "propertyKey": "issuetype.name",
-              "objectName": "Story"
+              "issueType": "Story"
             }
           }
         ]
