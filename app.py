@@ -29,7 +29,7 @@ JWT_SECRET = os.getenv("JWT_SECRET", "")
 # Si JWT_SECRET n'est pas défini, il sera initialisé lors de l'installation de l'application
 
 # Configuration LLM API
-API_URL = os.getenv("API_URL", "https://rpm-retain-sender-probably.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL", "https://metres-putting-secret-archived.trycloudflare.com/v1/chat/completions")
 
 app = Flask(__name__)
 CORS(app)
