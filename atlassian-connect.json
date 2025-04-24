@@ -20,7 +20,12 @@
         },
         "location": "atl.jira.view.issue.right.context",
         "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 100
+        "weight": 100,
+        "conditions": [
+          {
+            "condition": "user_is_logged_in"
+          }
+        ]
       }
     ],
     "webItems": [
@@ -29,9 +34,14 @@
         "name": {
           "value": "Générer des tests"
         },
-        "location": "operations-dropdown",
+        "location": "jira.issue.tools",
         "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 50
+        "weight": 50,
+        "conditions": [
+          {
+            "condition": "user_is_logged_in"
+          }
+        ]
       }
     ]
   },
@@ -41,6 +51,8 @@
   },
   "scopes": [
     "READ",
-    "WRITE"
+    "WRITE",
+    "ACT_AS_USER",
+    "ADMIN"
   ]
 }

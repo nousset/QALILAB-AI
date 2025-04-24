@@ -18,7 +18,7 @@ load_dotenv()
 # --------------------------
 # Configuration Jira
 # --------------------------
-JIRA_BASE_URL = os.getenv("JIRA_BASE_URL","https:amaniconsulting.atlassian.net")
+JIRA_BASE_URL = os.getenv("JIRA_BASE_URL","amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
@@ -127,8 +127,10 @@ def installed():
             "installed_date": datetime.datetime.now().isoformat()
         }
         
-        # Dans une application de production, stockez ces informations dans une base de données
+        # Ajouter des logs plus détaillés pour le débogage
         logger.info(f"Application installée pour le client: {client_key}")
+        logger.info(f"Base URL du client: {data.get('baseUrl')}")
+        logger.info(f"Installation réussie, données: {json.dumps(data, default=str)}")
         
         return jsonify({"status": "installed"})
     except Exception as e:
@@ -146,6 +148,7 @@ def uninstalled():
             del clients[client_key]
         
         logger.info(f"Application désinstallée pour le client: {client_key}")
+        logger.info(f"Désinstallation réussie, données: {json.dumps(data, default=str)}")
         
         return jsonify({"status": "uninstalled"})
     except Exception as e:
@@ -406,7 +409,11 @@ def jira_test_generator():
         // Initialisation AP
         AP.context.getContext(function(context) {
           console.log("Context:", context);
-          document.getElementById('issue-key').textContent = context.jira.issue ? context.jira.issue.key : 'N/A';
+          // Assurez-vous que l'élément existe avant de lui affecter une valeur
+          const issueKeyElement = document.getElementById('issue-key');
+          if (issueKeyElement) {
+            issueKeyElement.textContent = context.jira.issue ? context.jira.issue.key : 'N/A';
+          }
         });
         
         document.getElementById('generateBtn').addEventListener('click', function() {
@@ -455,44 +462,46 @@ def jira_test_generator():
           AP.context.getContext(function(context) {
             const issueKey = context.jira.issue ? context.jira.issue.key : '';
             
-            fetch('/api/create-task', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                generated_test: generatedTest,
-                summary: `Test: ${storySummary}`,
-                parent_issue: issueKey,
-                jwt: AP.context.getToken()
+            AP.context.getToken(function(token) {
+              fetch('/api/create-task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  generated_test: generatedTest,
+                  summary: `Test: ${storySummary}`,
+                  parent_issue: issueKey,
+                  jwt: token
+                })
               })
-            })
-            .then(response => response.json())
-            .then(data => {
-              if (data.issue && data.issue.key) {
-                AP.flag.create({
-                  title: 'Succès',
-                  body: 'Tâche de test créée: ' + data.issue.key,
-                  type: 'success'
-                });
-                
-                // Fermer la boîte de dialogue
-                setTimeout(() => {
-                  AP.dialog.close();
-                  // Rafraîchir la page pour voir le nouveau ticket lié
-                  AP.jira.refreshIssuePage();
-                }, 2000);
-              } else {
+              .then(response => response.json())
+              .then(data => {
+                if (data.issue && data.issue.key) {
+                  AP.flag.create({
+                    title: 'Succès',
+                    body: 'Tâche de test créée: ' + data.issue.key,
+                    type: 'success'
+                  });
+                  
+                  // Fermer la boîte de dialogue
+                  setTimeout(() => {
+                    AP.dialog.close();
+                    // Rafraîchir la page pour voir le nouveau ticket lié
+                    AP.jira.refreshIssuePage();
+                  }, 2000);
+                } else {
+                  AP.flag.create({
+                    title: 'Erreur',
+                    body: 'Erreur lors de la création de la tâche: ' + JSON.stringify(data),
+                    type: 'error'
+                  });
+                }
+              })
+              .catch(err => {
                 AP.flag.create({
                   title: 'Erreur',
-                  body: 'Erreur lors de la création de la tâche: ' + JSON.stringify(data),
+                  body: 'Erreur réseau: ' + err,
                   type: 'error'
                 });
-              }
-            })
-            .catch(err => {
-              AP.flag.create({
-                title: 'Erreur',
-                body: 'Erreur réseau: ' + err,
-                type: 'error'
               });
             });
           });
@@ -684,6 +693,7 @@ if __name__ == "__main__":
         f.write('''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0052CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 2 17.5v-11a2.5 2.5 0 0 1 2.5-2.5h5zm5 0A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 22 17.5v-11a2.5 2.5 0 0 0-2.5-2.5h-5z"/>
         <path d="M12 4.5C12 5.88 13.12 7 14.5 7H17a2 2 0 0 1 2 2v.5a2 2 0 0 1-2 2"/>
+        <path d="M12 4.5C12 5.88 10.88 7 9.5 7H7a2 2 0
         <path d="M12 4.5C12 5.88 10.88 7 9.5 7H7a2 2 0 0 0-2 2v.5a2 2 0 0 0 2 2"/>
         <path d="M14 12H9"/>
         <path d="M12 4.5V16.5"/>
@@ -691,6 +701,3 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
-
-   
