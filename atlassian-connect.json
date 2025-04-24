@@ -20,14 +20,6 @@
         },
         "location": "atl.jira.view.issue.right.context",
         "url": "/jira-test-generator?issueKey={issue.key}",
-        "conditions": [
-          {
-            "condition": "issue_type_equal_to",
-            "params": {
-              "issueType": "Story"
-            }
-          }
-        ],
         "weight": 100
       }
     ],
@@ -39,14 +31,6 @@
         },
         "location": "operations-dropdown",
         "url": "/jira-test-generator?issueKey={issue.key}",
-        "conditions": [
-          {
-            "condition": "issue_type_equal_to",
-            "params": {
-              "issueType": "Story"
-            }
-          }
-        ],
         "weight": 50
       }
     ]
