@@ -24,36 +24,60 @@
         "conditions": [
           {
             "condition": "user_is_logged_in"
+          },
+          {
+            "condition": "entity_property_equal_to",
+            "params": {
+              "entity": "issue",
+              "propertyKey": "issuetype.name",
+              "objectName": "Story"
+            }
           }
         ]
       }
     ],
     "webItems": [
       {
-        "key": "test-generator-button",
+        "key": "test-generator-main-button",
         "name": {
           "value": "Générer des tests"
         },
-        "location": "jira.issue.actions",
-        "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 50,
-        "conditions": [
-          {
-            "condition": "user_is_logged_in"
-          }
-        ]
-      },
-      {
-        "key": "test-generator-button-toolbar",
-        "name": {
-          "value": "Générer des tests"
-        },
-        "location": "jira.issue.tools.test-generator-section/item",
+        "location": "operations-dropdown",
         "url": "/jira-test-generator?issueKey={issue.key}",
         "weight": 10,
         "conditions": [
           {
             "condition": "user_is_logged_in"
+          },
+          {
+            "condition": "entity_property_equal_to",
+            "params": {
+              "entity": "issue",
+              "propertyKey": "issuetype.name",
+              "objectName": "Story"
+            }
+          }
+        ]
+      },
+      {
+        "key": "test-generator-dropdown",
+        "name": {
+          "value": "Générer des tests"
+        },
+        "location": "more-dropdown-items",
+        "url": "/jira-test-generator?issueKey={issue.key}",
+        "weight": 10,
+        "conditions": [
+          {
+            "condition": "user_is_logged_in"
+          },
+          {
+            "condition": "entity_property_equal_to",
+            "params": {
+              "entity": "issue",
+              "propertyKey": "issuetype.name",
+              "objectName": "Story"
+            }
           }
         ]
       }
