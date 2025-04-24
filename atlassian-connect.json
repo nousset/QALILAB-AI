@@ -11,44 +11,37 @@
     "type": "jwt"
   },
   "apiVersion": 1,
-  "modules": {
-    "webPanels": [
-      {
-        "key": "test-generator-panel",
-        "name": {
-          "value": "Générer des tests"
-        },
-        "location": "atl.jira.view.issue.right.context",
-        "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 100,
-        "conditions": [
-          {
-            "condition": "user_is_logged_in"
-          }
-        ]
-      }
-    ],
-    "webItems": [
-      {
-        "key": "test-generator-button",
-        "name": {
-          "value": "Générer des tests"
-        },
-        "location": "jira.issue.tools",
-        "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 50,
-        "conditions": [
-          {
-            "condition": "user_is_logged_in"
-          }
-        ]
-      }
-    ]
-  },
-  "lifecycle": {
-    "installed": "/installed",
-    "uninstalled": "/uninstalled"
-  },
+ "modules": {
+  "webItems": [
+    {
+      "key": "test-generator-button",
+      "name": {
+        "value": "Générer des tests"
+      },
+      "location": "jira.issue.actions",
+      "url": "/jira-test-generator?issueKey={issue.key}",
+      "weight": 50
+    },
+    {
+      "key": "test-generator-button-toolbar",
+      "name": {
+        "value": "Générer des tests"
+      },
+      "location": "jira.issue.tools.test-generator-section/item",
+      "url": "/jira-test-generator?issueKey={issue.key}",
+      "weight": 10
+    }
+  ],
+  "jiraEntityProperties": [
+    {
+      "key": "test-generator-property",
+      "name": {
+        "value": "Propriété générateur de test"
+      },
+      "entityType": "issue"
+    }
+  ]
+},
   "scopes": [
     "READ",
     "WRITE",
