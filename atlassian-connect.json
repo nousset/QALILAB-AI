@@ -14,15 +14,15 @@
   "modules": {
     "webItems": [
       {
-        "key": "test-generator-item",
+        "key": "test-generator-dropdown",
         "name": {
           "value": "Générer Cas de Test"
         },
-        "location": "operations-dropdown-menu",
+        "location": "operations",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
       },
       {
-        "key": "test-generator-issue-glance",
+        "key": "test-generator-more-menu",
         "name": {
           "value": "Générer Cas de Test"
         },
