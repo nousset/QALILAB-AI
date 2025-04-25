@@ -1,69 +1,36 @@
 {
   "name": "Générateur de Cas de Test",
-  "description": "Application pour générer des cas de test à partir de user stories",
+  "description": "Génère des cas de test en format Gherkin ou actions/résultats à partir des user stories",
   "key": "test-case-generator",
   "baseUrl": "https://qalilab-ai.onrender.com",
   "vendor": {
     "name": "Amani Consulting",
-    "url": "https://qalilab-ai.onrender.com"
+    "url": "https://amaniconsulting.atlassian.net"
   },
   "authentication": {
     "type": "none"
   },
-  "lifecycle": {
-    "installed": "/installed",
-    "uninstalled": "/uninstalled"
-  },
-  "scopes": [
-    "read"
-  ],
   "apiVersion": 1,
   "modules": {
-    "webItems": [
-      {
-        "key": "generate-test-case-button",
-        "name": {
-          "value": "Générer un cas de test"
-        },
-        "location": "jira.issue.tools",
-        "url": "/jira-test-generator?issueKey={issue.key}&returnUrl={issue.url}",
-        "conditions": [
-          {
-            "condition": "entity_property_equal_to",
-            "params": {
-              "entity": "issue",
-              "propertyKey": "issuetype.name",
-              "objectName": "Story"
-            }
-          }
-        ],
-        "tooltip": {
-          "value": "Générer un cas de test basé sur cette user story"
-        }
-      }
-    ],
-    "jiraIssueContents": [
+    "webPanels": [
       {
         "key": "test-generator-panel",
         "name": {
-          "value": "Générateur de cas de test"
+          "value": "Générer Cas de Test"
         },
-        "url": "/jira-test-generator?issueKey={issue.key}&returnUrl={issue.url}",
-        "icon": {
-          "width": 16,
-          "height": 16,
-          "url": "/images/test-icon.png"
+        "location": "atl.jira.view.issue.right.context",
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
+        "weight": 100
+      }
+    ],
+    "generalPages": [
+      {
+        "key": "test-generator-page",
+        "name": {
+          "value": "Génération de Cas de Test"
         },
-        "conditions": [
-          {
-            "condition": "entity_property_equal_to",
-            "params": {
-              "entity": "issue",
-              "propertyKey": "issuetype.name",
-              "objectName": "Story"
-            }
-          }
-        ]
+        "url": "/",
+        "location": "system.top.navigation.bar"
       }
     ]
   }

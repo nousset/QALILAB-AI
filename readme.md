@@ -1,95 +1,63 @@
 # Générateur de Cas de Test pour Jira
 
-Cette application Flask s'intègre à Jira pour générer automatiquement des cas de test à partir des user stories existantes.
+Cette application permet de générer automatiquement des cas de test à partir d'user stories dans Jira. Elle s'intègre directement dans Jira grâce à Atlassian Connect et peut être hébergée sur Render.
 
 ## Fonctionnalités
 
-- Bouton intégré directement dans l'interface Jira pour les user stories
+- Intégration directe dans Jira via un bouton sur chaque user story
 - Génération de cas de test au format Gherkin ou Actions/Résultats attendus
-- Création automatique de tickets de test dans Jira
-- API de génération de test basée sur Mistral-7B
+- Création automatique de tickets Jira pour les cas de test générés
+- Interface web indépendante pour les utilisateurs qui préfèrent ne pas utiliser l'intégration Jira
 
-## Structure des fichiers
+## Prérequis
 
-- `app.py` - Application Flask principale
-- `atlassian-connect.json` - Descripteur pour l'intégration avec Jira
-- `requirements.txt` - Dépendances Python
-- `Dockerfile` - Pour le déploiement conteneurisé
-- `render.yaml` - Configuration pour le déploiement sur Render
+- Un compte Render
+- Un compte Jira Cloud
+- Un token API Jira
 
 ## Configuration
 
-### Variables d'environnement
+### 1. Configuration des variables d'environnement
 
-Copiez le fichier `.env.example` vers `.env` et remplissez les variables suivantes :
+Créez un fichier `.env` à partir du modèle `.env.example` :
 
-```
-JIRA_BASE_URL=votre-instance.atlassian.net
-JIRA_EMAIL=votre-email@example.com
-JIRA_API_TOKEN=votre-token-api-jira
-JIRA_PROJECT_KEY=VOTRE_PROJET
-API_URL=url-de-votre-api-de-generation
+```bash
+cp .env.example .env
 ```
 
-## Déploiement sur Render
+Remplissez les valeurs suivantes :
 
-### Prérequis
+- `JIRA_BASE_URL` : URL de votre instance Jira Cloud (ex: votre-instance.atlassian.net)
+- `JIRA_EMAIL` : Email de votre compte Jira
+- `JIRA_API_TOKEN` : Token API généré dans les paramètres de sécurité de votre compte Atlassian
+- `JIRA_PROJECT_KEY` : Clé du projet Jira où vous souhaitez créer les tickets de test
 
-- Un compte [Render](https://render.com)
-- Un compte administrateur Jira
+### 2. Déploiement sur Render
 
-### Étapes de déploiement
+1. Connectez-vous à [Render](https://render.com)
+2. Créez un nouveau "Web Service"
+3. Connectez votre dépôt GitHub/GitLab contenant le code
+4. Configurez les paramètres comme suit :
+   - **Name**: nom-de-votre-choix
+   - **Environment**: Python
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app`
+5. Ajoutez les variables d'environnement depuis votre fichier `.env`
+6. Déployez l'application
 
-1. Créez un nouveau Web Service sur Render
-2. Connectez votre repository Git
-3. Render détectera automatiquement la configuration depuis `render.yaml`
-4. Configurez les variables d'environnement dans le dashboard Render
-5. Une fois déployé, notez l'URL de votre application (ex: `https://test-case-generator.onrender.com`)
+### 3. Configuration de l'add-on Jira
 
-### Configuration du descripteur Jira
+Une fois l'application déployée sur Render, vous devez installer l'add-on dans Jira :
 
-1. Modifiez le fichier `atlassian-connect.json` et remplacez `"baseUrl": "https://votre-application.onrender.com"` par l'URL de votre application Render
-2. Redéployez l'application
-
-### Installation dans Jira
-
-1. Dans Jira, allez dans **Paramètres** > **Apps** > **Gérer les apps**
-2. Cliquez sur **Télécharger une app**
-3. Entrez l'URL de votre application suivie de `/atlassian-connect` (ex: `https://test-case-generator.onrender.com/atlassian-connect`)
-4. Suivez les instructions d'installation
+1. Connectez-vous à votre instance Jira Cloud
+2. Allez dans "Paramètres" > "Applications" > "Gérer les applications"
+3. Cliquez sur "Télécharger l'application"
+4. Entrez l'URL de l'application déployée + `/atlassian-connect.json` (ex: https://votre-app.onrender.com/atlassian-connect.json)
+5. Suivez les instructions d'installation
 
 ## Utilisation
 
-1. Naviguez vers une user story dans Jira
-2. Cliquez sur le bouton "Générer un cas de test" dans les outils de l'issue
-3. L'application récupérera automatiquement les détails de la user story
-4. Choisissez le format de test souhaité (Gherkin ou Actions/Résultats)
-5. Cliquez sur "Générer un cas de test"
-6. Une fois le test généré, vous pouvez :
-   - Copier le contenu et retourner à Jira
-   - Créer automatiquement un ticket de test dans Jira
+Une fois l'add-on installé, vous verrez un bouton "Générer Cas de Test" dans le panneau latéral droit de chaque issue Jira.
 
-## Développement local
-
-Pour exécuter l'application localement :
-
-```bash
-# Installer les dépendances
-pip install -r requirements.txt
-
-# Configurer les variables d'environnement (ou utiliser un fichier .env)
-export JIRA_BASE_URL=votre-instance.atlassian.net
-export JIRA_EMAIL=votre-email@example.com
-export JIRA_API_TOKEN=votre-token-api
-export JIRA_PROJECT_KEY=VOTRE_PROJET
-export API_URL=url-de-votre-api
-
-# Lancer l'application
-flask run --debug
-```
-
-Pour tester l'intégration Jira en local, vous pouvez utiliser un service comme ngrok pour exposer votre application locale à Internet.
-
-## Support
-
-Pour toute question ou problème, veuillez créer une issue dans ce repository.
+1. Ouvrez une user story dans Jira
+2. Cliquez sur le bouton "Géné

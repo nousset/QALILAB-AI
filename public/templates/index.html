@@ -1,0 +1,158 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Génération de cas de test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+    textarea, pre, select { width: 100%; }
+    pre { background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
+    button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+    button:hover { background-color: #45a049; }
+    .return-button { background-color: #2196F3; }
+    .return-button:hover { background-color: #0b7dda; }
+    .create-ticket-button { background-color: #ff9800; }
+    .create-ticket-button:hover { background-color: #e68a00; }
+    #status { padding: 10px; margin-top: 10px; display: none; }
+    .success { background-color: #dff0d8; color: #3c763d; }
+    .error { background-color: #f2dede; color: #a94442; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; }
+    select { padding: 8px; border-radius: 4px; border: 1px solid #ddd; }
+    
+    /* Styles pour l'intégration Jira */
+    .jira-integration { padding: 10px; background-color: #f8f9fa; border-radius: 5px; margin-bottom: 15px; }
+    .jira-info { font-size: 14px; color: #555; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Générer des cas de test à partir d'une User Story</h1>
+  
+  {% if jira_return_url %}
+  <div class="jira-integration">
+    <div class="jira-info">
+      <strong>Mode intégration Jira</strong> - Génération de cas de test pour une user story Jira
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="post">
+    <div class="form-group">
+      <label for="story">User Story :</label>
+      <textarea id="story" name="story" rows="6" cols="60" placeholder="Entrez la user story ici...">{{ story }}</textarea>
+    </div>
+    <div class="form-group">
+      Format de test :
+      <label><input type="radio" name="format" value="gherkin" {% if format_choice != 'action' %}checked{% endif %}> Gherkin</label>
+      <label><input type="radio" name="format" value="action" {% if format_choice == 'action' %}checked{% endif %}> Actions / Résultats attendus</label>
+    </div>
+    {% if jira_return_url %}
+      <input type="hidden" name="returnUrl" value="{{ jira_return_url }}">
+    {% endif %}
+    <p><button type="submit">Générer</button></p>
+  </form>
+
+  {% if generated_test %}
+    <h2>Cas de test généré :</h2>
+    <pre id="generatedTest">{{ generated_test }}</pre>
+    
+    <div id="status"></div>
+    
+    {% if issue_types %}
+    <div class="form-group">
+      <label for="issueType">Type de ticket Jira :</label>
+      <select id="issueType">
+        {% for type in issue_types %}
+        <option value="{{ type }}">{{ type }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    
+    <p>
+      {% if jira_return_url %}
+      <button class="return-button" onclick="copyAndReturn()">Copier et retourner à Jira</button>
+      {% endif %}
+      <button class="create-ticket-button" onclick="createJiraTicket()">Créer un ticket Jira</button>
+    </p>
+    
+    <script>
+      function copyAndReturn() {
+        const generatedTest = document.getElementById('generatedTest').textContent;
+        const returnUrl = "{{ jira_return_url }}";
+        const statusDiv = document.getElementById('status');
+        
+        // Copier dans le presse-papiers
+        navigator.clipboard.writeText(generatedTest)
+          .then(() => {
+            statusDiv.textContent = 'Test copié dans le presse-papiers. Redirection...';
+            statusDiv.className = 'success';
+            statusDiv.style.display = 'block';
+            
+            // Rediriger après un court délai
+            setTimeout(() => {
+              if (returnUrl) {
+                window.location.href = returnUrl;
+              }
+            }, 1500);
+          })
+          .catch(err => {
+            statusDiv.textContent = 'Erreur lors de la copie: ' + err;
+            statusDiv.className = 'error';
+            statusDiv.style.display = 'block';
+          });
+      }
+      
+      function createJiraTicket() {
+        const generatedTest = document.getElementById('generatedTest').textContent;
+        const statusDiv = document.getElementById('status');
+        const summary = "Cas de test généré: " + document.querySelector('textarea[name="story"]').value.substring(0, 50) + "...";
+        const issueTypeSelect = document.getElementById('issueType');
+        const issueType = issueTypeSelect ? issueTypeSelect.value : null;
+        
+        statusDiv.textContent = 'Création du ticket Jira en cours...';
+        statusDiv.className = '';
+        statusDiv.style.display = 'block';
+        
+        const payload = {
+            content: generatedTest,
+            summary: summary
+        };
+        
+        if (issueType) {
+            payload.issueType = issueType;
+        }
+        
+        fetch('/create_jira_ticket', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                statusDiv.textContent = 'Ticket Jira créé avec succès: ' + data.ticket_key;
+                statusDiv.className = 'success';
+                
+                // Ajouter un lien vers le ticket créé
+                const ticketLink = document.createElement('p');
+                ticketLink.innerHTML = `<a href="https://{{ JIRA_BASE_URL }}/browse/${data.ticket_key}" target="_blank">Voir le ticket ${data.ticket_key}</a>`;
+                statusDiv.appendChild(ticketLink);
+            } else {
+                statusDiv.textContent = 'Erreur lors de la création du ticket: ' + data.message;
+                statusDiv.className = 'error';
+            }
+        })
+        .catch(error => {
+            statusDiv.textContent = 'Erreur: ' + error;
+            statusDiv.className = 'error';
+        });
+      }
+    </script>
+  {% endif %}
+</body>
+</html>
+```
