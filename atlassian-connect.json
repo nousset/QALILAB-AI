@@ -14,7 +14,7 @@
   "modules": {
     "webPanels": [
       {
-        "key": "test-generator-panel",
+        "key": "test-generator-panel-1",
         "name": {
           "value": "Générer Cas de Test"
         },
@@ -23,11 +23,20 @@
         "weight": 100
       },
       {
-        "key": "test-generator-panel-sidebar",
+        "key": "test-generator-panel-2",
         "name": {
           "value": "Générer Cas de Test"
         },
         "location": "jira.view.issue",
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
+        "weight": 100
+      },
+      {
+        "key": "test-generator-panel-3",
+        "name": {
+          "value": "Générer Cas de Test"
+        },
+        "location": "jira.issue.tools",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
         "weight": 100
       }
