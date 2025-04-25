@@ -1,46 +1,70 @@
 {
   "name": "Générateur de Cas de Test",
-  "description": "Génère automatiquement des cas de test à partir des user stories",
-  "key": "test-generator-app",
-  "baseUrl": "https://qalilab-ai.onrender.com",
+  "description": "Application pour générer des cas de test à partir de user stories",
+  "key": "test-case-generator",
+  "baseUrl": "https://votre-application.onrender.com",
   "vendor": {
-    "name": "QALILAB-AI",
-    "url": "https://qalilab-ai.onrender.com"
+    "name": "Amani Consulting",
+    "url": "https://amaniconsulting.com"
   },
   "authentication": {
-    "type": "jwt"
-  },
-  "apiVersion": 1,
-  "modules": {
-    "webItems": [
-      {
-        "key": "test-generator-button",
-        "name": {
-          "value": "Générer des tests"
-        },
-        "location": "jira.issue.tools",
-        "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 50,
-        "conditions": [
-          {
-            "condition": "user_is_logged_in"
-          },
-          {
-            "condition": "issue_type_is",
-            "params": {
-              "issueType": "Story"
-            }
-          }
-        ]
-      }
-    ]
+    "type": "none"
   },
   "lifecycle": {
     "installed": "/installed",
     "uninstalled": "/uninstalled"
   },
   "scopes": [
-    "READ",
-    "WRITE"
-  ]
+    "read"
+  ],
+  "apiVersion": 1,
+  "modules": {
+    "webItems": [
+      {
+        "key": "generate-test-case-button",
+        "name": {
+          "value": "Générer un cas de test"
+        },
+        "location": "jira.issue.tools",
+        "url": "/jira-test-generator?issueKey={issue.key}&returnUrl={issue.url}",
+        "conditions": [
+          {
+            "condition": "entity_property_equal_to",
+            "params": {
+              "entity": "issue",
+              "propertyKey": "issuetype.name",
+              "objectName": "Story"
+            }
+          }
+        ],
+        "tooltip": {
+          "value": "Générer un cas de test basé sur cette user story"
+        }
+      }
+    ],
+    "jiraIssueContents": [
+      {
+        "key": "test-generator-panel",
+        "name": {
+          "value": "Générateur de cas de test"
+        },
+        "url": "/jira-test-generator?issueKey={issue.key}&returnUrl={issue.url}",
+        "icon": {
+          "width": 16,
+          "height": 16,
+          "url": "/images/test-icon.png"
+        },
+        "conditions": [
+          {
+            "condition": "entity_property_equal_to",
+            "params": {
+              "entity": "issue",
+              "propertyKey": "issuetype.name",
+              "objectName": "Story"
+            }
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -1,65 +1,39 @@
 from dotenv import load_dotenv
 import os
-from flask import Flask, request, render_template_string, jsonify, redirect, url_for, send_from_directory
-from flask_cors import CORS
+from flask import Flask, request, render_template_string, jsonify
 import requests
 import json
-import urllib.parse
-import jwt
-import datetime
-import logging
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+# Chargement des variables d'environnement
 load_dotenv()
 
-# --------------------------
-# Configuration Jira
-# --------------------------
-JIRA_BASE_URL = os.getenv("JIRA_BASE_URL","amaniconsulting.atlassian.net")
+# Configuration
+JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
-JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
-BASE_URL = os.getenv("BASE_URL", "https://qalilab-ai.onrender.com")
-
-# JWT Secret pour authentification Atlassian Connect
-JWT_SECRET = os.getenv("JWT_SECRET", "")
-# Si JWT_SECRET n'est pas défini, il sera initialisé lors de l'installation de l'application
-
-# Configuration LLM API
-API_URL = os.getenv("API_URL", "https://arrested-gel-task-enhancing.trycloudflare.com/v1/chat/completions")
+JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
+API_URL = os.getenv("API_URL", "https://write-purchases-p-highlights.trycloudflare.com/v1/chat/completions")
 
 app = Flask(__name__)
-CORS(app)
-
-# Stockage temporaire pour les informations de connexion client
-# Dans une application de production, utilisez une base de données
-clients = {}
 
 def generate_response(prompt, max_tokens=256):
-    headers = {
-        "Content-Type": "application/json"
-    }
+    headers = {"Content-Type": "application/json"}
     payload = {
         "model": "mistral-7b-instruct-v0.3",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
         "temperature": 0.7
     }
-
+    
     try:
-        response = requests.post(API_URL, headers=headers, data=json.dumps(payload))
+        response = requests.post(API_URL, headers=headers, json=payload)
         if response.status_code == 200:
             result = response.json()
             return result["choices"][0]["message"]["content"]
         else:
-            logger.error(f"Erreur API LLM: {response.status_code} - {response.text}")
-            return f"Erreur API: {response.status_code} - {response.text}"
+            return f"Erreur API: {response.status_code}"
     except Exception as e:
-        logger.error(f"Erreur de connexion à LM Studio: {str(e)}")
-        return f"Erreur de connexion à LM Studio: {str(e)}"
+        return f"Erreur: {str(e)}"
 
 def build_prompt(story_text, format_choice):
     if format_choice == "gherkin":
@@ -75,629 +49,542 @@ def build_prompt(story_text, format_choice):
             "à effectuer et les résultats attendus pour chaque action, en français."
         )
 
+def get_issue_types():
+    api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/issue/createmeta?projectKeys={JIRA_PROJECT_KEY}"
+    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+    
+    try:
+        response = requests.get(api_endpoint, auth=auth)
+        if response.status_code == 200:
+            data = response.json()
+            if data['projects'] and len(data['projects']) > 0:
+                return [issue_type['name'] for issue_type in data['projects'][0]['issuetypes']]
+        return []
+    except Exception:
+        return []
 
+def create_jira_ticket(test_content, summary="Cas de test généré automatiquement"):
+    api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/issue/"
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    # Authentification Basic (email + token API)
+    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+    
+    # D'abord, essayons de récupérer les types de tickets disponibles
+    issue_types = get_issue_types()
+    
+    # Choisir un type approprié ou utiliser une valeur par défaut commune
+    issue_type = "Story"  # Valeur par défaut
+    
+    # Si on a récupéré les types, on essaie de trouver un type approprié
+    if issue_types:
+        # Priorité pour les types communs dans cet ordre
+        preferred_types = ["Test", "Story", "Task", "Bug", "Sub-task"]
+        for preferred in preferred_types:
+            if preferred in issue_types:
+                issue_type = preferred
+                break
+    
+    payload = {
+        "fields": {
+            "project": {
+                "key": JIRA_PROJECT_KEY
+            },
+            "summary": summary,
+            "description": test_content,
+            "issuetype": {
+                "name": issue_type
+            }
+        }
+    }
+    
+    try:
+        response = requests.post(api_endpoint, headers=headers, auth=auth, json=payload)
+        if response.status_code in [200, 201]:
+            result = response.json()
+            return True, result["key"]  # Renvoie l'ID du ticket créé
+        else:
+            return False, f"Erreur API Jira: {response.status_code} - {response.text}"
+    except Exception as e:
+        return False, f"Erreur: {str(e)}"
 
-@app.route("/")
-def home():
-    return """
-    <html>
-    <head>
-        <title>TestGen AI pour Jira</title>
-        <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
-            h1 { color: #0052CC; }
-            .card { background: #f4f5f7; border-radius: 5px; padding: 20px; margin-bottom: 20px; }
-        </style>
-    </head>
-    <body>
-        <h1>TestGen AI pour Jira</h1>
-        <div class="card">
-            <h2>Application installée avec succès</h2>
-            <p>Cette application est conçue pour être utilisée dans Jira. Pour l'installer dans votre instance Jira, utilisez le descripteur Atlassian Connect :</p>
-            <code>https://votre-domaine.com/atlassian-connect.json</code>
-        </div>
-        <p>Pour plus d'informations sur l'installation, consultez la documentation Atlassian Connect.</p>
-    </body>
-    </html>
-    """
-# Routes pour servir le logo et les fichiers statiques
-@app.route('/static/<path:path>')
-def send_static(path):
-    return send_from_directory('static', path)
+@app.route("/create_jira_ticket", methods=["POST"])
+def handle_create_ticket():
+    data = request.json
+    test_content = data.get("content", "")
+    summary = data.get("summary", "Cas de test généré automatiquement")
+    
+    success, result = create_jira_ticket(test_content, summary)
+    
+    if success:
+        return jsonify({"success": True, "ticket_key": result})
+    else:
+        return jsonify({"success": False, "message": result})
 
-# Routes Atlassian Connect
-@app.route("/atlassian-connect.json")
-def serve_descriptor():
-    with open('atlassian-connect.json', 'r') as f:
-        descriptor = json.load(f)
-    return jsonify(descriptor)
+@app.route("/get_issue_types", methods=["GET"])
+def handle_get_issue_types():
+    issue_types = get_issue_types()
+    return jsonify({"issue_types": issue_types})
+
+# Nouvelle route pour l'API qui prend une user story directement de Jira
+@app.route("/api/generate_test", methods=["POST"])
+def generate_test_api():
+    data = request.json
+    story_text = data.get("summary", "") + "\n" + data.get("description", "")
+    format_choice = data.get("format", "gherkin")
+    
+    if not story_text.strip():
+        return jsonify({"success": False, "message": "Texte de user story manquant"})
+    
+    prompt = build_prompt(story_text, format_choice)
+    generated_test = generate_response(prompt)
+    
+    return jsonify({
+        "success": True,
+        "generated_test": generated_test
+    })
+
+# Point de terminaison pour la vérification de santé (pour Render)
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "ok"})
+
+# Point de terminaison pour l'installation/désinstallation du plugin Jira
+@app.route("/atlassian-connect", methods=["GET"])
+def atlassian_connect():
+    with open('atlassian-connect.json', 'r') as file:
+        data = json.load(file)
+    return jsonify(data)
 
 @app.route("/installed", methods=["POST"])
 def installed():
-    try:
-        data = request.get_json()
-        client_key = data.get("clientKey")
-        
-        # Stocke les informations de connexion
-        clients[client_key] = {
-            "base_url": data.get("baseUrl"),
-            "oauth_client_id": data.get("oauthClientId", ""),
-            "shared_secret": data.get("sharedSecret"),
-            "public_key": data.get("publicKey", ""),
-            "installed_date": datetime.datetime.now().isoformat()
-        }
-        
-        # Ajouter des logs plus détaillés pour le débogage
-        logger.info(f"Application installée pour le client: {client_key}")
-        logger.info(f"Base URL du client: {data.get('baseUrl')}")
-        logger.info(f"Installation réussie, données: {json.dumps(data, default=str)}")
-        
-        return jsonify({"status": "installed"})
-    except Exception as e:
-        logger.error(f"Erreur lors de l'installation: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    # Traiter l'événement d'installation
+    return jsonify({"status": "ok"})
 
 @app.route("/uninstalled", methods=["POST"])
 def uninstalled():
-    try:
-        data = request.get_json()
-        client_key = data.get("clientKey")
-        
-        # Supprime les informations de connexion
-        if client_key in clients:
-            del clients[client_key]
-        
-        logger.info(f"Application désinstallée pour le client: {client_key}")
-        logger.info(f"Désinstallation réussie, données: {json.dumps(data, default=str)}")
-        
-        return jsonify({"status": "uninstalled"})
-    except Exception as e:
-        logger.error(f"Erreur lors de la désinstallation: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    # Traiter l'événement de désinstallation
+    return jsonify({"status": "ok"})
 
-# Fonction pour vérifier le JWT
-def verify_jwt(req):
-    try:
-        # Récupère le token JWT depuis l'en-tête Authorization
-        authorization = req.headers.get("Authorization", "")
-        token = authorization.replace("JWT ", "")
-        
-        if not token:
-            # Vérifie si le token est passé en paramètre de requête
-            token = req.args.get("jwt", "")
-        
-        if not token:
-            logger.warning("Aucun token JWT trouvé")
-            return None
-        
-        # Décode le JWT
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        client_key = decoded.get("iss")
-        
-        if client_key not in clients:
-            logger.warning(f"Client inconnu: {client_key}")
-            return None
-        
-        # Vérification complète avec la clé partagée
-        shared_secret = clients[client_key]["shared_secret"]
-        decoded_verified = jwt.decode(token, shared_secret, algorithms=["HS256"])
-        
-        return decoded_verified
-    except Exception as e:
-        logger.error(f"Erreur de vérification JWT: {str(e)}")
-        return None
-
-# Route principale pour le générateur de tests dans la boîte de dialogue Jira
-@app.route("/jira-test-generator", methods=["GET"])
-def jira_test_generator():
-    jwt_data = verify_jwt(request)
+@app.route("/", methods=["GET", "POST"])
+def index():
+    story_text = ""
+    format_choice = "gherkin"
+    generated_test = None
+    jira_return_url = None
+    issue_types = get_issue_types()
     
-    if not jwt_data:
-        return jsonify({"error": "JWT invalide"}), 401
+    # Récupérer les paramètres
+    if request.method == "GET":
+        story_text = request.args.get("story", "").strip()
+        format_choice = request.args.get("format", "gherkin")
+        jira_return_url = request.args.get("returnUrl", "")
+        auto_generate = request.args.get("autoGenerate", "false").lower() == "true"
+        
+        if story_text and auto_generate:
+            prompt = build_prompt(story_text, format_choice)
+            generated_test = generate_response(prompt)
     
-    # Récupère les informations du contexte de l'issue Jira
-    issue_key = request.args.get("issueKey", "")
-    client_key = jwt_data.get("iss")
+    if request.method == "POST":
+        story_text = request.form.get("story", "").strip()
+        format_choice = request.form.get("format", "gherkin")
+        jira_return_url = request.form.get("returnUrl", "")
+        
+        if story_text:
+            prompt = build_prompt(story_text, format_choice)
+            generated_test = generate_response(prompt)
     
-    if not issue_key and jwt_data.get("context", {}).get("jira", {}).get("issue", {}).get("key"):
-        issue_key = jwt_data["context"]["jira"]["issue"]["key"]
-    
-    # Si on a une clé d'issue mais pas de contexte complet, on récupère les données depuis l'API Jira
-    if issue_key and client_key in clients:
-        try:
-            base_url = clients[client_key]["base_url"]
-            
-            # Création d'un JWT pour l'API Jira
-            now = datetime.datetime.now()
-            exp = now + datetime.timedelta(minutes=3)
-            
-            jwt_payload = {
-                "iss": "test-generator-app",
-                "iat": int(now.timestamp()),
-                "exp": int(exp.timestamp()),
-                "qsh": "context-qsh", # Simplification, normalement calculé
-                "sub": client_key
-            }
-            
-            shared_secret = clients[client_key]["shared_secret"]
-            jwt_token = jwt.encode(jwt_payload, shared_secret, algorithm="HS256")
-            
-            # Récupère les détails de l'issue
-            issue_url = f"{base_url}/rest/api/3/issue/{issue_key}"
-            headers = {
-                "Authorization": f"JWT {jwt_token}",
-                "Accept": "application/json"
-            }
-            
-            response = requests.get(issue_url, headers=headers)
-            if response.status_code == 200:
-                issue_data = response.json()
-                summary = issue_data.get("fields", {}).get("summary", "")
-                description = issue_data.get("fields", {}).get("description", "")
-                description_text = ""
-                
-                # Extraction du texte de description (format ADF)
-                if isinstance(description, dict) and description.get("content"):
-                    for content in description.get("content", []):
-                        if content.get("type") == "paragraph" and content.get("content"):
-                            for text_part in content.get("content", []):
-                                if text_part.get("type") == "text":
-                                    description_text += text_part.get("text", "") + "\n"
-            else:
-                summary = ""
-                description_text = ""
-                logger.warning(f"Impossible de récupérer les données de l'issue: {response.status_code}")
-        except Exception as e:
-            summary = ""
-            description_text = ""
-            logger.error(f"Erreur lors de la récupération des données de l'issue: {str(e)}")
-    else:
-        summary = ""
-        description_text = ""
-    
-    story_text = f"{summary}\n\n{description_text}".strip()
-    
+    # Modèle HTML simplifié
     html_template = """
-    <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Générateur de cas de test</title>
-      <link rel="stylesheet" href="https://unpkg.com/@atlaskit/css-reset@6.0.5/dist/bundle.css"/>
-      <link rel="stylesheet" href="https://unpkg.com/@atlaskit/reduced-ui-pack@13.0.0/dist/bundle.css"/>
-      <script src="https://connect-cdn.atl-paas.net/all.js"></script>
+      <title>Génération de cas de test</title>
       <style>
-        body { 
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; 
-          margin: 20px; 
-          background-color: #f4f5f7;
-        }
-        .card {
-          background-color: white;
-          border-radius: 3px;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-          padding: 20px;
-          margin-bottom: 20px;
-        }
-        textarea { 
-          width: 100%; 
-          min-height: 120px; 
-          padding: 8px;
-          border: 1px solid #dfe1e6;
-          border-radius: 3px;
-          resize: vertical;
-          font-family: inherit;
-          font-size: 14px;
-        }
-        .field-group {
-          margin-bottom: 16px;
-        }
-        label {
-          display: block;
-          font-weight: 500;
-          margin-bottom: 8px;
-        }
-        .radio-group {
-          margin-bottom: 16px;
-        }
-        .radio-label {
-          margin-right: 16px;
-          font-weight: normal;
-          display: inline-flex;
-          align-items: center;
-        }
-        pre { 
-          background-color: #f4f5f7; 
-          padding: 12px; 
-          border-radius: 3px; 
-          white-space: pre-wrap;
-          font-family: monospace;
-          font-size: 14px;
-          line-height: 1.4;
-          border: 1px solid #dfe1e6;
-        }
-        .ak-button {
-          margin-right: 8px;
-        }
-        #result {
-          margin-top: 20px;
-          display: none;
-        }
-        .header {
-          display: flex;
-          align-items: center;
-          margin-bottom: 16px;
-        }
-        .header h2 {
-          margin: 0;
-          flex-grow: 1;
-        }
-        .header-icon {
-          margin-right: 10px;
-        }
-        .header-buttons {
-          display: flex;
-          gap: 8px;
-        }
-        .card-title {
-          font-size: 16px;
-          font-weight: 500;
-          margin-bottom: 12px;
-        }
-        .spinner {
-          display: inline-block;
-          border: 2px solid #f3f3f3;
-          border-top: 2px solid #0052cc;
-          border-radius: 50%;
-          width: 16px;
-          height: 16px;
-          animation: spin 1s linear infinite;
-          margin-right: 8px;
-          vertical-align: middle;
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        #loading {
-          display: none;
-          margin-top: 16px;
-        }
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+        textarea, pre, select { width: 100%; }
+        pre { background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+        button:hover { background-color: #45a049; }
+        .return-button { background-color: #2196F3; }
+        .return-button:hover { background-color: #0b7dda; }
+        .create-ticket-button { background-color: #ff9800; }
+        .create-ticket-button:hover { background-color: #e68a00; }
+        #status { padding: 10px; margin-top: 10px; display: none; }
+        .success { background-color: #dff0d8; color: #3c763d; }
+        .error { background-color: #f2dede; color: #a94442; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        select { padding: 8px; border-radius: 4px; border: 1px solid #ddd; }
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="header-icon">🧠</div>
-        <h2>Générateur de cas de test</h2>
+      <h1>Générer des cas de test à partir d'une User Story</h1>
+      <form method="post">
+        <div class="form-group">
+          <label for="story">User Story :</label>
+          <textarea id="story" name="story" rows="6" cols="60" placeholder="Entrez la user story ici...">{{ story }}</textarea>
+        </div>
+        <div class="form-group">
+          Format de test :
+          <label><input type="radio" name="format" value="gherkin" {% if format_choice != 'action' %}checked{% endif %}> Gherkin</label>
+          <label><input type="radio" name="format" value="action" {% if format_choice == 'action' %}checked{% endif %}> Actions / Résultats attendus</label>
+        </div>
+        {% if jira_return_url %}
+          <input type="hidden" name="returnUrl" value="{{ jira_return_url }}">
+        {% endif %}
+        <p><button type="submit">Générer</button></p>
+      </form>
+
+      {% if generated_test %}
+        <h2>Cas de test généré :</h2>
+        <pre id="generatedTest">{{ generated_test }}</pre>
+        
+        <div id="status"></div>
+        
+        {% if issue_types %}
+        <div class="form-group">
+          <label for="issueType">Type de ticket Jira :</label>
+          <select id="issueType">
+            {% for type in issue_types %}
+            <option value="{{ type }}">{{ type }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        
+        <p>
+          <button class="return-button" onclick="copyAndReturn()">Copier et retourner à Jira</button>
+          <button class="create-ticket-button" onclick="createJiraTicket()">Créer un ticket Jira</button>
+        </p>
+        
+        <script>
+          function copyAndReturn() {
+            const generatedTest = document.getElementById('generatedTest').textContent;
+            const returnUrl = "{{ jira_return_url }}";
+            const statusDiv = document.getElementById('status');
+            
+            // Copier dans le presse-papiers
+            navigator.clipboard.writeText(generatedTest)
+              .then(() => {
+                statusDiv.textContent = 'Test copié dans le presse-papiers. Redirection...';
+                statusDiv.className = 'success';
+                statusDiv.style.display = 'block';
+                
+                // Rediriger après un court délai
+                setTimeout(() => {
+                  if (returnUrl) {
+                    window.location.href = returnUrl;
+                  }
+                }, 1500);
+              })
+              .catch(err => {
+                statusDiv.textContent = 'Erreur lors de la copie: ' + err;
+                statusDiv.className = 'error';
+                statusDiv.style.display = 'block';
+              });
+          }
+          
+          function createJiraTicket() {
+            const generatedTest = document.getElementById('generatedTest').textContent;
+            const statusDiv = document.getElementById('status');
+            const summary = "Cas de test généré: " + document.querySelector('textarea[name="story"]').value.substring(0, 50) + "...";
+            const issueTypeSelect = document.getElementById('issueType');
+            const issueType = issueTypeSelect ? issueTypeSelect.value : null;
+            
+            statusDiv.textContent = 'Création du ticket Jira en cours...';
+            statusDiv.className = '';
+            statusDiv.style.display = 'block';
+            
+            const payload = {
+                content: generatedTest,
+                summary: summary
+            };
+            
+            if (issueType) {
+                payload.issueType = issueType;
+            }
+            
+            fetch('/create_jira_ticket', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusDiv.textContent = 'Ticket Jira créé avec succès: ' + data.ticket_key;
+                    statusDiv.className = 'success';
+                    
+                    // Ajouter un lien vers le ticket créé
+                    const ticketLink = document.createElement('p');
+                    ticketLink.innerHTML = `<a href="https://{{ JIRA_BASE_URL }}/browse/${data.ticket_key}" target="_blank">Voir le ticket ${data.ticket_key}</a>`;
+                    statusDiv.appendChild(ticketLink);
+                } else {
+                    statusDiv.textContent = 'Erreur lors de la création du ticket: ' + data.message;
+                    statusDiv.className = 'error';
+                }
+            })
+            .catch(error => {
+                statusDiv.textContent = 'Erreur: ' + error;
+                statusDiv.className = 'error';
+            });
+          }
+        </script>
+      {% endif %}
+    </body>
+    </html>
+    """
+    
+    return render_template_string(html_template,
+                                  story=story_text,
+                                  format_choice=format_choice,
+                                  generated_test=generated_test,
+                                  jira_return_url=jira_return_url,
+                                  JIRA_BASE_URL=JIRA_BASE_URL,
+                                  issue_types=issue_types)
+
+# Nouvelle route pour la page qui sera appelée depuis Jira
+@app.route("/jira-test-generator", methods=["GET"])
+def jira_test_generator():
+    issue_key = request.args.get("issueKey", "")
+    jira_return_url = request.args.get("returnUrl", "")
+    
+    html_template = """
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Générateur de cas de test Jira</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+        textarea, pre, select { width: 100%; }
+        pre { background-color: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+        button:hover { background-color: #45a049; }
+        .return-button { background-color: #2196F3; }
+        .return-button:hover { background-color: #0b7dda; }
+        .create-ticket-button { background-color: #ff9800; }
+        .create-ticket-button:hover { background-color: #e68a00; }
+        #status { padding: 10px; margin-top: 10px; display: none; }
+        .success { background-color: #dff0d8; color: #3c763d; }
+        .error { background-color: #f2dede; color: #a94442; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        select { padding: 8px; border-radius: 4px; border: 1px solid #ddd; }
+        #loading { display: none; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      </style>
+      <script src="https://connect-cdn.atl-paas.net/all.js"></script>
+    </head>
+    <body>
+      <h1>Générateur de cas de test pour {{ issue_key }}</h1>
+      
+      <div id="loading">
+        <div class="spinner"></div> Chargement des détails de la user story...
       </div>
       
-      <div class="card">
-        <div class="card-title">Informations de la user story</div>
-        <div class="field-group">
-          <label for="storyText">Description</label>
-          <textarea id="storyText" placeholder="Entrez la user story ici...">{{ story_text }}</textarea>
+      <div id="content" style="display: none;">
+        <div class="form-group">
+          <label for="summary">Titre de la user story:</label>
+          <input type="text" id="summary" name="summary" style="width: 100%; padding: 8px;" readonly>
         </div>
         
-        <div class="radio-group">
-          <label>Format de test :</label>
-          <label class="radio-label">
-            <input type="radio" name="format" value="gherkin" checked> Gherkin (Given/When/Then)
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="format" value="action"> Actions / Résultats attendus
-          </label>
+        <div class="form-group">
+          <label for="description">Description:</label>
+          <textarea id="description" name="description" rows="6" cols="60" readonly></textarea>
         </div>
         
-        <button id="generateBtn" class="ak-button ak-button__appearance-primary">Générer le test</button>
-        
-        <div id="loading">
-          <div class="spinner"></div> Génération du test en cours...
+        <div class="form-group">
+          Format de test :
+          <label><input type="radio" name="format" value="gherkin" checked> Gherkin</label>
+          <label><input type="radio" name="format" value="action"> Actions / Résultats attendus</label>
         </div>
-      </div>
-      
-      <div id="result" class="card">
-        <div class="card-title">Test généré</div>
-        <pre id="generatedTest"></pre>
         
-        <div class="header-buttons">
-          <button id="saveBtn" class="ak-button ak-button__appearance-primary">Créer une tâche avec ce test</button>
-          <button id="copyBtn" class="ak-button ak-button__appearance-default">Copier</button>
+        <button id="generateButton">Générer un cas de test</button>
+        
+        <div id="result" style="margin-top: 20px; display: none;">
+          <h2>Cas de test généré :</h2>
+          <pre id="generatedTest"></pre>
+          
+          <div id="status"></div>
+          
+          <div class="form-group" id="issueTypeContainer" style="display: none;">
+            <label for="issueType">Type de ticket Jira :</label>
+            <select id="issueType"></select>
+          </div>
+          
+          <p>
+            <button class="return-button" onclick="copyAndReturn()">Copier et retourner à Jira</button>
+            <button class="create-ticket-button" onclick="createJiraTicket()">Créer un ticket Jira</button>
+          </p>
         </div>
       </div>
       
       <script>
-        // Initialisation AP
+        // Initialiser l'API AP
         AP.context.getContext(function(context) {
-          console.log("Context:", context);
-          // Assurez-vous que l'élément existe avant de lui affecter une valeur
-          const issueKeyElement = document.getElementById('issue-key');
-          if (issueKeyElement) {
-            issueKeyElement.textContent = context.jira.issue ? context.jira.issue.key : 'N/A';
-          }
+          const issueKey = "{{ issue_key }}";
+          document.getElementById('loading').style.display = 'block';
+          
+          // Récupérer les détails de la story
+          AP.request({
+            url: '/rest/api/2/issue/' + issueKey + '?fields=summary,description',
+            success: function(response) {
+              const issue = JSON.parse(response);
+              document.getElementById('summary').value = issue.fields.summary || '';
+              document.getElementById('description').value = issue.fields.description || '';
+              
+              document.getElementById('loading').style.display = 'none';
+              document.getElementById('content').style.display = 'block';
+              
+              // Charger les types de tickets
+              fetch('/get_issue_types')
+                .then(response => response.json())
+                .then(data => {
+                  if (data.issue_types && data.issue_types.length > 0) {
+                    const issueTypeSelect = document.getElementById('issueType');
+                    data.issue_types.forEach(type => {
+                      const option = document.createElement('option');
+                      option.value = type;
+                      option.textContent = type;
+                      issueTypeSelect.appendChild(option);
+                    });
+                    document.getElementById('issueTypeContainer').style.display = 'block';
+                  }
+                });
+            },
+            error: function(xhr, statusText, errorThrown) {
+              document.getElementById('loading').style.display = 'none';
+              alert('Erreur lors de la récupération des détails de la story: ' + statusText);
+            }
+          });
         });
         
-        document.getElementById('generateBtn').addEventListener('click', function() {
-          const storyText = document.getElementById('storyText').value;
+        // Générer un cas de test
+        document.getElementById('generateButton').addEventListener('click', function() {
+          const summary = document.getElementById('summary').value;
+          const description = document.getElementById('description').value;
           const format = document.querySelector('input[name="format"]:checked').value;
+          const resultDiv = document.getElementById('result');
+          const statusDiv = document.getElementById('status');
           
-          if (!storyText.trim()) {
-            AP.flag.create({
-              title: 'Champ obligatoire',
-              body: 'Veuillez entrer une description de user story',
-              type: 'error'
-            });
-            return;
-          }
-          
-          // Afficher le chargement
+          resultDiv.style.display = 'none';
           document.getElementById('loading').style.display = 'block';
-          document.getElementById('result').style.display = 'none';
           
-          fetch('/api/generate', {
+          fetch('/api/generate_test', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ story: storyText, format: format })
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              summary: summary,
+              description: description,
+              format: format
+            })
           })
           .then(response => response.json())
           .then(data => {
             document.getElementById('loading').style.display = 'none';
-            document.getElementById('generatedTest').textContent = data.result;
-            document.getElementById('result').style.display = 'block';
+            if (data.success) {
+              document.getElementById('generatedTest').textContent = data.generated_test;
+              resultDiv.style.display = 'block';
+            } else {
+              statusDiv.textContent = 'Erreur: ' + data.message;
+              statusDiv.className = 'error';
+              statusDiv.style.display = 'block';
+            }
           })
-          .catch(err => {
+          .catch(error => {
             document.getElementById('loading').style.display = 'none';
-            AP.flag.create({
-              title: 'Erreur',
-              body: 'Erreur lors de la génération du test: ' + err,
-              type: 'error'
-            });
+            statusDiv.textContent = 'Erreur: ' + error;
+            statusDiv.className = 'error';
+            statusDiv.style.display = 'block';
           });
         });
         
-        document.getElementById('saveBtn').addEventListener('click', function() {
+        function copyAndReturn() {
           const generatedTest = document.getElementById('generatedTest').textContent;
-          const storyText = document.getElementById('storyText').value;
-          const storySummary = storyText.split('\n')[0].slice(0, 50) || "Cas de test";
+          const returnUrl = "{{ jira_return_url }}";
+          const statusDiv = document.getElementById('status');
           
-          AP.context.getContext(function(context) {
-            const issueKey = context.jira.issue ? context.jira.issue.key : '';
-            
-            AP.context.getToken(function(token) {
-              fetch('/api/create-task', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  generated_test: generatedTest,
-                  summary: `Test: ${storySummary}`,
-                  parent_issue: issueKey,
-                  jwt: token
-                })
-              })
-              .then(response => response.json())
-              .then(data => {
-                if (data.issue && data.issue.key) {
-                  AP.flag.create({
-                    title: 'Succès',
-                    body: 'Tâche de test créée: ' + data.issue.key,
-                    type: 'success'
-                  });
-                  
-                  // Fermer la boîte de dialogue
-                  setTimeout(() => {
-                    AP.dialog.close();
-                    // Rafraîchir la page pour voir le nouveau ticket lié
-                    AP.jira.refreshIssuePage();
-                  }, 2000);
-                } else {
-                  AP.flag.create({
-                    title: 'Erreur',
-                    body: 'Erreur lors de la création de la tâche: ' + JSON.stringify(data),
-                    type: 'error'
-                  });
-                }
-              })
-              .catch(err => {
-                AP.flag.create({
-                  title: 'Erreur',
-                  body: 'Erreur réseau: ' + err,
-                  type: 'error'
-                });
-              });
+          navigator.clipboard.writeText(generatedTest)
+            .then(() => {
+              statusDiv.textContent = 'Test copié dans le presse-papiers. Redirection...';
+              statusDiv.className = 'success';
+              statusDiv.style.display = 'block';
+              
+              setTimeout(() => {
+                AP.navigator.navigateToIssue("{{ issue_key }}");
+              }, 1500);
+            })
+            .catch(err => {
+              statusDiv.textContent = 'Erreur lors de la copie: ' + err;
+              statusDiv.className = 'error';
+              statusDiv.style.display = 'block';
             });
-          });
-        });
+        }
         
-        document.getElementById('copyBtn').addEventListener('click', function() {
+        function createJiraTicket() {
           const generatedTest = document.getElementById('generatedTest').textContent;
+          const summary = document.getElementById('summary').value;
+          const statusDiv = document.getElementById('status');
+          const issueTypeSelect = document.getElementById('issueType');
+          const issueType = issueTypeSelect ? issueTypeSelect.value : null;
           
-          // Copier dans le presse-papiers
-          navigator.clipboard.writeText(generatedTest).then(function() {
-            AP.flag.create({
-              title: 'Copié',
-              body: 'Test copié dans le presse-papiers',
-              type: 'success'
-            });
-          }, function() {
-            AP.flag.create({
-              title: 'Erreur',
-              body: 'Impossible de copier dans le presse-papiers',
-              type: 'warning'
-            });
+          statusDiv.textContent = 'Création du ticket Jira en cours...';
+          statusDiv.className = '';
+          statusDiv.style.display = 'block';
+          
+          const payload = {
+            content: generatedTest,
+            summary: "Cas de test généré: " + summary.substring(0, 50) + "..."
+          };
+          
+          if (issueType) {
+            payload.issueType = issueType;
+          }
+          
+          fetch('/create_jira_ticket', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              statusDiv.textContent = 'Ticket Jira créé avec succès: ' + data.ticket_key;
+              statusDiv.className = 'success';
+              
+              const ticketLink = document.createElement('p');
+              ticketLink.innerHTML = `<a href="https://{{ JIRA_BASE_URL }}/browse/${data.ticket_key}" target="_blank">Voir le ticket ${data.ticket_key}</a>`;
+              statusDiv.appendChild(ticketLink);
+            } else {
+              statusDiv.textContent = 'Erreur lors de la création du ticket: ' + data.message;
+              statusDiv.className = 'error';
+            }
+          })
+          .catch(error => {
+            statusDiv.textContent = 'Erreur: ' + error;
+            statusDiv.className = 'error';
           });
-        });
+        }
       </script>
-      <div id="issue-key" style="display: none;"></div>
     </body>
     </html>
     """
-    return render_template_string(html_template, story_text=story_text)
-
-# API pour la génération de tests
-@app.route("/api/generate", methods=["POST"])
-def api_generate():
-    data = request.json
-    story_text = data.get("story", "").strip()
-    format_choice = data.get("format", "gherkin")
     
-    if not story_text:
-        return jsonify({"error": "Aucune user story fournie"}), 400
-
-    prompt = build_prompt(story_text, format_choice)
-    generated_test = generate_response(prompt, max_tokens=500)
-    return jsonify({"result": generated_test})
-
-# API pour la création de tâches Jira
-@app.route("/api/create-task", methods=["POST"])
-def api_create_task():
-    data = request.json
-    test_content = data.get("generated_test", "")
-    summary = data.get("summary", "Cas de test généré automatiquement")
-    parent_issue = data.get("parent_issue", "")
-    jwt_token = data.get("jwt", "")
-
-    if not test_content:
-        return jsonify({"error": "Aucun contenu de test fourni"}), 400
-    
-    # Vérification JWT
-    try:
-        decoded = jwt.decode(jwt_token, options={"verify_signature": False})
-        client_key = decoded.get("iss")
-        
-        if client_key not in clients:
-            return jsonify({"error": "Client non autorisé"}), 401
-            
-        # Récupération des informations d'authentification du client
-        client_info = clients[client_key]
-        base_url = client_info["base_url"]
-        
-        # Création d'un JWT pour l'API Jira
-        now = datetime.datetime.now()
-        exp = now + datetime.timedelta(minutes=3)
-        
-        jwt_payload = {
-            "iss": "test-generator-app",
-            "iat": int(now.timestamp()),
-            "exp": int(exp.timestamp()),
-            "qsh": "context-qsh", # Simplification, normalement calculé
-            "sub": client_key
-        }
-        
-        shared_secret = client_info["shared_secret"]
-        api_jwt = jwt.encode(jwt_payload, shared_secret, algorithm="HS256")
-        
-        # Formatage ADF pour Jira
-        adf_description = {
-            "type": "doc",
-            "version": 1,
-            "content": [
-                {
-                    "type": "paragraph",
-                    "content": [
-                        {"type": "text", "text": test_content}
-                    ]
-                }
-            ]
-        }
-        
-        # Prépare le payload avec les champs appropriés
-        payload = {
-            "fields": {
-                "summary": summary,
-                "description": adf_description,
-                "issuetype": {"name": "Test"}  # Vérifie que ce type existe dans ton projet Jira
-            }
-        }
-        
-        # Si un ticket parent est spécifié, récupère le projet et ajoute le lien
-        if parent_issue:
-            # Récupère les informations du ticket parent
-            issue_url = f"{base_url}/rest/api/3/issue/{parent_issue}"
-            headers = {
-                "Authorization": f"JWT {api_jwt}",
-                "Accept": "application/json"
-            }
-            
-            response = requests.get(issue_url, headers=headers)
-            if response.status_code == 200:
-                parent_data = response.json()
-                project_key = parent_data.get("fields", {}).get("project", {}).get("key")
-                
-                if project_key:
-                    payload["fields"]["project"] = {"key": project_key}
-            
-            # Ajoute le lien avec le ticket parent si supporté
-            try:
-                # On essaie d'abord avec le champ parent
-                payload["fields"]["parent"] = {"key": parent_issue}
-            except:
-                # Sinon nous créerons un lien après la création du ticket
-                pass
-        
-        # Crée le ticket de test
-        create_url = f"{base_url}/rest/api/3/issue"
-        headers = {
-            "Authorization": f"JWT {api_jwt}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-        
-        response = requests.post(create_url, headers=headers, json=payload)
-        
-        if response.status_code == 201:
-            result = response.json()
-            new_issue_key = result.get("key")
-            
-            # Si le champ parent n'est pas supporté, crée un lien
-            if parent_issue and "parent" not in payload["fields"]:
-                link_url = f"{base_url}/rest/api/3/issueLink"
-                link_payload = {
-                    "type": {"name": "Tests"},  # Ou un autre type approprié comme "Relates to"
-                    "inwardIssue": {"key": new_issue_key},
-                    "outwardIssue": {"key": parent_issue}
-                }
-                
-                link_response = requests.post(link_url, headers=headers, json=link_payload)
-                
-                if link_response.status_code != 201:
-                    logger.warning(f"Erreur lors de la création du lien: {link_response.status_code}")
-            
-            return jsonify({"message": "Tâche Jira créée", "issue": result}), 201
-        else:
-            logger.error(f"Erreur lors de la création du ticket: {response.status_code} - {response.text}")
-            return jsonify({"error": response.text}), response.status_code
-            
-    except Exception as e:
-        logger.error(f"Erreur lors de la création de la tâche: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# Logo SVG pour l'icône du glance
-@app.route("/static/brain.svg")
-def serve_brain_svg():
-    svg_content = '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0052CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 2 17.5v-11a2.5 2.5 0 0 1 2.5-2.5h5zm5 0A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 22 17.5v-11a2.5 2.5 0 0 0-2.5-2.5h-5z"/>
-    <path d="M12 4.5C12 5.88 13.12 7 14.5 7H17a2 2 0 0 1 2 2v.5a2 2 0 0 1-2 2"/>
-    <path d="M12 4.5C12 5.88 10.88 7 9.5 7H7a2 2 0 0 0-2 2v.5a2 2 0 0 0 2 2"/>
-    <path d="M14 12H9"/>
-    <path d="M12 4.5V16.5"/>
-    </svg>'''
-    
-    return svg_content, 200, {'Content-Type': 'image/svg+xml'}
+    return render_template_string(html_template,
+                                  issue_key=issue_key,
+                                  jira_return_url=jira_return_url,
+                                  JIRA_BASE_URL=JIRA_BASE_URL)
 
 if __name__ == "__main__":
-    # Vérification du répertoire static
-    if not os.path.exists('static'):
-        os.makedirs('static')
-    
-    # Création du fichier SVG
-    with open('static/brain.svg', 'w') as f:
-        f.write('''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0052CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 2 17.5v-11a2.5 2.5 0 0 1 2.5-2.5h5zm5 0A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 22 17.5v-11a2.5 2.5 0 0 0-2.5-2.5h-5z"/>
-        <path d="M12 4.5C12 5.88 13.12 7 14.5 7H17a2 2 0 0 1 2 2v.5a2 2 0 0 1-2 2"/>
-        <path d="M12 4.5C12 5.88 10.88 7 9.5 7H7a2 2 0
-        <path d="M12 4.5C12 5.88 10.88 7 9.5 7H7a2 2 0 0 0-2 2v.5a2 2 0 0 0 2 2"/>
-        <path d="M14 12H9"/>
-        <path d="M12 4.5V16.5"/>
-    </svg>''')
-    
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
