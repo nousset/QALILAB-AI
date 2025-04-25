@@ -2,10 +2,10 @@
   "name": "Générateur de Cas de Test",
   "description": "Génère des cas de test en format Gherkin ou actions/résultats à partir des user stories",
   "key": "test-case-generator",
-  "baseUrl": "https://qalilab-ai.onrender.com",
+  "baseUrl": "https://amaniconsulting.atlassian.net",
   "vendor": {
     "name": "Amani Consulting",
-    "url": "https://amaniconsulting.atlassian.net"
+    "url": "https://https://qalilab-ai.onrender.com"
   },
   "authentication": {
     "type": "none"
