@@ -5,7 +5,7 @@
   "baseUrl": "https://amaniconsulting.atlassian.net",
   "vendor": {
     "name": "Amani Consulting",
-    "url": "https://https://qalilab-ai.onrender.com"
+    "url": "https://qalilab-ai.onrender.com"
   },
   "authentication": {
     "type": "none"
