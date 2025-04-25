@@ -1,55 +1,20 @@
-{
-  "name": "Générateur de Cas de Test",
-  "description": "Génère des cas de test en format Gherkin ou actions/résultats à partir des user stories",
-  "key": "test-case-generator",
-  "baseUrl": "https://qalilab-ai.onrender.com",
-  "vendor": {
-    "name": "Amani Consulting",
-    "url": "https://amaniconsulting.atlassian.net"
-  },
-  "authentication": {
-    "type": "none"
-  },
-  "apiVersion": 1,
-  "modules": {
-    "webPanels": [
-      {
-        "key": "test-generator-panel-1",
-        "name": {
-          "value": "Générer Cas de Test"
-        },
-        "location": "atl.jira.view.issue.right.context",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
-        "weight": 100
+"modules": {
+  "webItems": [
+    {
+      "key": "test-generator-item",
+      "name": {
+        "value": "Générer Cas de Test"
       },
-      {
-        "key": "test-generator-panel-2",
-        "name": {
-          "value": "Générer Cas de Test"
-        },
-        "location": "jira.view.issue",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
-        "weight": 100
+      "location": "operations",
+      "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+    },
+    {
+      "key": "test-generator-glance",
+      "name": {
+        "value": "Générer Cas de Test"
       },
-      {
-        "key": "test-generator-panel-3",
-        "name": {
-          "value": "Générer Cas de Test"
-        },
-        "location": "jira.issue.tools",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
-        "weight": 100
-      }
-    ],
-    "generalPages": [
-      {
-        "key": "test-generator-page",
-        "name": {
-          "value": "Génération de Cas de Test"
-        },
-        "url": "/",
-        "location": "system.top.navigation.bar"
-      }
-    ]
-  }
+      "location": "jira.issue.tools",
+      "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+    }
+  ]
 }
