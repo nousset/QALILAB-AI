@@ -5,7 +5,7 @@
   "baseUrl": "https://qalilab-ai.onrender.com",
   "vendor": {
     "name": "Amani Consulting",
-    "url": "https://amaniconsulting.com"
+    "url": "https://qalilab-ai.onrender.com"
   },
   "authentication": {
     "type": "none"
