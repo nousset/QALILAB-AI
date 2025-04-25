@@ -12,37 +12,15 @@
   },
   "apiVersion": 1,
   "modules": {
-    "webPanels": [
-      {
-        "key": "test-generator-panel",
-        "name": {
-          "value": "Générer des tests"
-        },
-        "location": "atl.jira.view.issue.right.context",
-        "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 100,
-        "conditions": [
-          {
-            "condition": "user_is_logged_in"
-          },
-          {
-            "condition": "issue_type_is",
-            "params": {
-              "issueType": "Story"
-            }
-          }
-        ]
-      }
-    ],
     "webItems": [
       {
-        "key": "test-generator-main-button",
+        "key": "test-generator-button",
         "name": {
           "value": "Générer des tests"
         },
-        "location": "operations-dropdown",
+        "location": "jira.issue.tools",
         "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 10,
+        "weight": 50,
         "conditions": [
           {
             "condition": "user_is_logged_in"
@@ -54,46 +32,15 @@
             }
           }
         ]
-      },
-      {
-        "key": "test-generator-dropdown",
-        "name": {
-          "value": "Générer des tests"
-        },
-        "location": "more-dropdown-items",
-        "url": "/jira-test-generator?issueKey={issue.key}",
-        "weight": 10,
-        "conditions": [
-          {
-            "condition": "user_is_logged_in"
-          },
-          {
-            "condition": "issue_type_is",
-            "params": {
-              "issueType": "Story"
-            }
-          }
-        ]
-      }
-    ],
-    "jiraEntityProperties": [
-      {
-        "key": "test-generator-property",
-        "name": {
-          "value": "Propriété générateur de test"
-        },
-        "entityType": "issue"
       }
     ]
   },
   "lifecycle": {
-    "installed": "https://qalilab-ai.onrender.com/installed",
-    "uninstalled": "https://qalilab-ai.onrender.com/uninstalled"
+    "installed": "/installed",
+    "uninstalled": "/uninstalled"
   },
   "scopes": [
     "READ",
-    "WRITE",
-    "ACT_AS_USER",
-    "ADMIN"
+    "WRITE"
   ]
 }
