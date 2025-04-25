@@ -587,4 +587,5 @@ def jira_test_generator():
                                   JIRA_BASE_URL=JIRA_BASE_URL)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))  # Render fournit la variable PORT
+    app.run(host="0.0.0.0", port=port)
