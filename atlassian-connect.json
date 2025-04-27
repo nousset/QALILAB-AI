@@ -18,16 +18,19 @@
         "name": {
           "value": "Générer Cas de Test"
         },
-        "location": "operations",
+        "location": "jira.issue.tools",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
-      },
+      }
+    ],
+    "webPanels": [
       {
-        "key": "test-generator-more-menu",
+        "key": "test-generator-panel",
         "name": {
           "value": "Générer Cas de Test"
         },
-        "location": "jira.issue.tools",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+        "location": "atl.jira.view.issue.right.context",
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
+        "weight": 100
       }
     ],
     "generalPages": [

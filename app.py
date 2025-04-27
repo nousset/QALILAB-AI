@@ -12,7 +12,7 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
-API_URL = os.getenv("API_URL", "https://newbie-reflections-reproduction-prozac.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL", "https://classifieds-aimed-prix-helena.trycloudflare.com/v1/chat/completions")
 
 app = Flask(__name__)
 
