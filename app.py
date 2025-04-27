@@ -34,7 +34,7 @@ def generate_response(prompt, max_tokens=256):
             return f"Erreur API: {response.status_code}"
     except Exception as e:
         return f"Erreur: {str(e)}"
-
+    
 def build_prompt(story_text, format_choice):
     if format_choice == "gherkin":
         return (
@@ -62,6 +62,29 @@ def get_issue_types():
         return []
     except Exception:
         return []
+
+def add_comment_button_to_issue(issue_key):
+    """Ajoute un commentaire avec un bouton vers votre application"""
+    
+    api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/issue/{issue_key}/comment"
+    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+    
+    button_link = f"https://qalilab-ai.onrender.com/jira-panel?issueKey={issue_key}"
+    
+    link_text = f"[Générer des cas de test|{button_link}]"
+    
+    comment = {
+        "body": f"Cliquez ici pour {link_text} pour cette user story."
+    }
+    
+    try:
+        response = requests.post(api_endpoint, json=comment, auth=auth)
+        if response.status_code == 201:
+            return True, "Commentaire ajouté avec succès"
+        else:
+            return False, f"Erreur: {response.status_code} - {response.text}"
+    except Exception as e:
+        return False, f"Exception: {str(e)}"
 
 def create_jira_ticket(test_content, summary="Cas de test généré automatiquement", issue_type=None):
     api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/issue/"
@@ -176,6 +199,91 @@ def uninstalled():
     """Gère la désinstallation de l'application"""
     print("Application désinstallée!")
     return jsonify({"status": "ok"})
+
+@app.route("/add-link-to-issue/<issue_key>")
+def add_link(issue_key):
+    """Route pour ajouter un commentaire avec un lien à une issue Jira"""
+    success, message = add_comment_button_to_issue(issue_key)
+    if success:
+        return jsonify({
+            "success": True, 
+            "message": f"Lien ajouté à l'issue {issue_key}", 
+            "details": message
+        })
+    else:
+        return jsonify({
+            "success": False, 
+            "message": f"Erreur lors de l'ajout du lien à l'issue {issue_key}", 
+            "details": message
+        }), 400
+
+@app.route("/check-env", methods=["GET"])
+def check_env():
+    """Route de diagnostic pour vérifier les variables d'environnement (masquées)"""
+    env_status = {
+        "JIRA_BASE_URL": JIRA_BASE_URL,
+        "JIRA_EMAIL": JIRA_EMAIL[:3] + "***" if JIRA_EMAIL else None,
+        "JIRA_API_TOKEN": "***" if JIRA_API_TOKEN else None,
+        "JIRA_PROJECT_KEY": JIRA_PROJECT_KEY,
+    }
+    return jsonify(env_status)
+
+@app.route("/add-links-to-user-stories", methods=["GET"])
+def add_links_to_user_stories():
+    """Ajoute des liens à toutes les user stories du projet"""
+    # Récupérer les issues de type User Story du projet
+    api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/search"
+    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+    
+    # JQL pour obtenir toutes les User Stories du projet
+    jql = f"project = {JIRA_PROJECT_KEY} AND issuetype = 'Story' ORDER BY created DESC"
+    
+    params = {
+        "jql": jql,
+        "maxResults": 100  # Augmenté à 100 pour traiter plus de stories
+    }
+    
+    try:
+        response = requests.get(api_endpoint, auth=auth, params=params)
+        if response.status_code != 200:
+            return jsonify({
+                "success": False,
+                "message": f"Erreur lors de la récupération des user stories: {response.status_code} - {response.text}"
+            }), 400
+            
+        data = response.json()
+        issues = data.get("issues", [])
+        
+        if not issues:
+            return jsonify({
+                "success": True,
+                "message": "Aucune user story trouvée dans le projet"
+            })
+        
+        results = []
+        for issue in issues:
+            issue_key = issue["key"]
+            success, message = add_comment_button_to_issue(issue_key)
+            results.append({
+                "issue_key": issue_key,
+                "success": success,
+                "message": message
+            })
+        
+        successful = sum(1 for r in results if r["success"])
+        failed = len(results) - successful
+        
+        return jsonify({
+            "success": True,
+            "message": f"Traitement terminé. {successful} liens ajoutés avec succès, {failed} échecs.",
+            "results": results
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Erreur: {str(e)}"
+        }), 500
 
 @app.route("/", methods=["GET", "POST"])
 def index():
