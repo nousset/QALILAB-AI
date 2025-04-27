@@ -135,53 +135,14 @@ def handle_get_issue_types():
 @app.route("/atlassian-connect.json")
 def descriptor():
     """Fournit le descripteur atlassian-connect.json"""
-    # Vérifie si le fichier existe, sinon génère un descripteur par défaut
-    if os.path.exists('atlassian-connect.json'):
-        with open('atlassian-connect.json', 'r') as f:
-            descriptor = json.load(f)
-    else:
-        # Descripteur par défaut
-        descriptor = {
-            "name": "Générateur de Cas de Test",
-            "description": "Génère des cas de test en format Gherkin ou actions/résultats à partir des user stories",
-            "key": "test-case-generator",
-            "baseUrl": request.url_root.rstrip('/'),
-            "vendor": {
-                "name": "Amani Consulting",
-                "url": "https://amaniconsulting.atlassian.net"
-            },
-            "authentication": {
-                "type": "none"
-            },
-            "apiVersion": 1,
-            "modules": {
-                "webPanels": [
-                    {
-                        "key": "test-generator-panel",
-                        "name": {
-                            "value": "Générer Cas de Test"
-                        },
-                        "location": "atl.jira.view.issue.right.context",
-                        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
-                        "weight": 100
-                    }
-                ],
-                "generalPages": [
-                    {
-                        "key": "test-generator-page",
-                        "name": {
-                            "value": "Génération de Cas de Test"
-                        },
-                        "url": "/",
-                        "location": "system.top.navigation.bar"
-                    }
-                ]
-            }
-        }
+    with open('atlassian-connect.json', 'r') as f:
+        descriptor = json.load(f)
     
     # Assure-toi que l'URL de base est correcte (pour le développement vs production)
     if os.environ.get("RENDER_EXTERNAL_URL"):
         descriptor["baseUrl"] = os.environ.get("RENDER_EXTERNAL_URL").rstrip('/')
+    else:
+        descriptor["baseUrl"] = request.url_root.rstrip('/')
     
     return jsonify(descriptor)
 
@@ -191,6 +152,8 @@ def jira_panel():
     issue_key = request.args.get("issueKey", "")
     summary = request.args.get("summary", "")
     description = request.args.get("description", "")
+    
+    print(f"Requête reçue pour l'issue {issue_key}")
     
     # URL pour retourner à l'issue Jira
     jira_return_url = f"https://{JIRA_BASE_URL}/browse/{issue_key}"
