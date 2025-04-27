@@ -135,15 +135,14 @@ def handle_get_issue_types():
 @app.route("/atlassian-connect.json")
 def descriptor():
     """Fournit le descripteur atlassian-connect.json"""
+    print("Demande du descripteur reçue!")
     with open('atlassian-connect.json', 'r') as f:
         descriptor = json.load(f)
     
-    # Assure-toi que l'URL de base est correcte (pour le développement vs production)
-    if os.environ.get("RENDER_EXTERNAL_URL"):
-        descriptor["baseUrl"] = os.environ.get("RENDER_EXTERNAL_URL").rstrip('/')
-    else:
-        descriptor["baseUrl"] = request.url_root.rstrip('/')
+    # Assure-toi que l'URL de base est correcte
+    descriptor["baseUrl"] = "https://qalilab-ai.onrender.com"
     
+    print(f"Descripteur servi: {json.dumps(descriptor)}")
     return jsonify(descriptor)
 
 @app.route("/jira-panel")
@@ -165,6 +164,18 @@ def jira_panel():
                           autoGenerate="true")
     
     return redirect(redirect_url)
+
+@app.route("/installed", methods=["POST"])
+def installed():
+    """Gère l'installation de l'application"""
+    print("Application installée!")
+    return jsonify({"status": "ok"})
+
+@app.route("/uninstalled", methods=["POST"])
+def uninstalled():
+    """Gère la désinstallation de l'application"""
+    print("Application désinstallée!")
+    return jsonify({"status": "ok"})
 
 @app.route("/", methods=["GET", "POST"])
 def index():
