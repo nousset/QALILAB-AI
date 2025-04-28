@@ -20,15 +20,15 @@
           "value": "Générer Cas de Test"
         },
         "location": "jira.issue.tools",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr"
       },
       {
         "key": "test-generator-item-operations",
         "name": {
-          "value": "Générer Cas de Test"
+          "value": "Generate Test Case (EN)"
         },
         "location": "operations",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=en"
       },
       {
         "key": "test-generator-item-more",
@@ -36,7 +36,7 @@
           "value": "Générer Cas de Test"
         },
         "location": "jira.issue.more",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr"
       }
     ],
     "webPanels": [
@@ -46,7 +46,7 @@
           "value": "Générateur de Cas de Test"
         },
         "location": "atl.jira.view.issue.right.context",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr",
         "weight": 100
       }
     ],

@@ -35,18 +35,21 @@ def generate_response(prompt, max_tokens=256):
     except Exception as e:
         return f"Erreur: {str(e)}"
     
-def build_prompt(story_text, format_choice):
+def build_prompt(story_text, format_choice, language_choice="fr"):
+    # Détermine la langue pour le prompt
+    lang = "français" if language_choice == "fr" else "anglais"
+    
     if format_choice == "gherkin":
         return (
             f"Voici une user story : \"{story_text}\"\n"
-            "En tant qu'assistant de test, génère un scénario de test au format Gherkin "
-            "(Given/When/Then) en français."
+            f"En tant qu'assistant de test, génère un scénario de test au format Gherkin "
+            f"(Given/When/Then) en {lang}."
         )
     else:
         return (
             f"Voici une user story : \"{story_text}\"\n"
-            "En tant qu'assistant de test, génère un cas de test détaillant les actions "
-            "à effectuer et les résultats attendus pour chaque action, en français."
+            f"En tant qu'assistant de test, génère un cas de test détaillant les actions "
+            f"à effectuer et les résultats attendus pour chaque action, en {lang}."
         )
 
 def get_issue_types():
@@ -216,6 +219,7 @@ def jira_panel():
     issue_key = request.args.get("issueKey", "")
     summary = request.args.get("summary", "")
     description = request.args.get("description", "")
+    language = request.args.get("language", "fr")  # Ajout du paramètre de langue
     
     print(f"Requête reçue pour l'issue {issue_key}")
     
@@ -226,6 +230,7 @@ def jira_panel():
     redirect_url = url_for('index', 
                           story=description,
                           returnUrl=jira_return_url,
+                          language=language,
                           autoGenerate="true")
     
     return redirect(redirect_url)
@@ -331,6 +336,7 @@ def add_links_to_user_stories():
 def index():
     story_text = ""
     format_choice = "gherkin"
+    language_choice = "fr"  # Français par défaut
     generated_test = None
     jira_return_url = None
     issue_types = get_issue_types()
@@ -339,25 +345,28 @@ def index():
     if request.method == "GET":
         story_text = request.args.get("story", "").strip()
         format_choice = request.args.get("format", "gherkin")
+        language_choice = request.args.get("language", "fr")
         jira_return_url = request.args.get("returnUrl", "")
         auto_generate = request.args.get("autoGenerate", "false").lower() == "true"
         
         if story_text and auto_generate:
-            prompt = build_prompt(story_text, format_choice)
+            prompt = build_prompt(story_text, format_choice, language_choice)
             generated_test = generate_response(prompt)
     
     if request.method == "POST":
         story_text = request.form.get("story", "").strip()
         format_choice = request.form.get("format", "gherkin")
+        language_choice = request.form.get("language", "fr")
         jira_return_url = request.form.get("returnUrl", "")
         
         if story_text:
-            prompt = build_prompt(story_text, format_choice)
+            prompt = build_prompt(story_text, format_choice, language_choice)
             generated_test = generate_response(prompt)
     
     return render_template("index.html",
                           story=story_text,
                           format_choice=format_choice,
+                          language_choice=language_choice,
                           generated_test=generated_test,
                           jira_return_url=jira_return_url,
                           JIRA_BASE_URL=JIRA_BASE_URL,
