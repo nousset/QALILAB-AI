@@ -12,7 +12,7 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
-API_URL = os.getenv("API_URL", "https://classifieds-aimed-prix-helena.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL", "https://fees-reproduced-trailers-appears.trycloudflare.com/v1/chat/completions")
 
 app = Flask(__name__)
 
@@ -62,7 +62,8 @@ def get_issue_types():
         return []
     except Exception:
         return []
-
+    
+    
 def add_comment_button_to_issue(issue_key):
     """Ajoute un commentaire avec un bouton vers votre application"""
     
@@ -135,6 +136,47 @@ def create_jira_ticket(test_content, summary="Cas de test généré automatiquem
             return False, f"Erreur API Jira: {response.status_code} - {response.text}"
     except Exception as e:
         return False, f"Erreur: {str(e)}"
+    
+@app.route("/check-app-status")
+def check_app_status():
+    """Endpoint pour vérifier l'état de l'application et sa configuration"""
+    # Vérifie si le fichier descripteur existe
+    descriptor_exists = os.path.exists('atlassian-connect.json')
+    
+    # Si le fichier existe, charge-le pour vérification
+    descriptor_content = None
+    if descriptor_exists:
+        try:
+            with open('atlassian-connect.json', 'r') as f:
+                descriptor_content = json.load(f)
+        except Exception as e:
+            descriptor_content = {"error": str(e)}
+    
+    # Vérifie si les variables d'environnement obligatoires sont définies
+    env_vars = {
+        "JIRA_BASE_URL": bool(JIRA_BASE_URL),
+        "JIRA_EMAIL": bool(JIRA_EMAIL),
+        "JIRA_API_TOKEN": bool(JIRA_API_TOKEN),
+        "JIRA_PROJECT_KEY": bool(JIRA_PROJECT_KEY)
+    }
+    
+    # Vérifie les templates
+    templates_dir = os.path.exists('templates')
+    index_template = os.path.exists('templates/index.html') if templates_dir else False
+    
+    status = {
+        "app_running": True,
+        "descriptor_exists": descriptor_exists,
+        "descriptor_content": descriptor_content,
+        "env_vars": env_vars,
+        "templates_directory_exists": templates_dir,
+        "index_template_exists": index_template,
+        "app_url": request.url_root,
+        "descriptor_url": request.url_root.rstrip('/') + "/atlassian-connect.json"
+    }
+    
+    return jsonify(status)
+    
 
 @app.route("/create_jira_ticket", methods=["POST"])
 def handle_create_ticket():

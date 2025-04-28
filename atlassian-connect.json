@@ -15,12 +15,39 @@
   "modules": {
     "webItems": [
       {
-        "key": "test-generator-item",
+        "key": "test-generator-item-top",
+        "name": {
+          "value": "Générer Cas de Test"
+        },
+        "location": "jira.issue.tools",
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+      },
+      {
+        "key": "test-generator-item-operations",
+        "name": {
+          "value": "Générer Cas de Test"
+        },
+        "location": "operations",
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+      },
+      {
+        "key": "test-generator-item-more",
         "name": {
           "value": "Générer Cas de Test"
         },
         "location": "jira.issue.more",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}"
+      }
+    ],
+    "webPanels": [
+      {
+        "key": "test-generator-panel",
+        "name": {
+          "value": "Générateur de Cas de Test"
+        },
+        "location": "atl.jira.view.issue.right.context",
+        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}",
+        "weight": 100
       }
     ],
     "generalPages": [
