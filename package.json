@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "atlassian-jwt": "^2.0.3"
+  }
+}
