@@ -1,6 +1,6 @@
 {
-  "name": "Générateur de Cas de Test",
-  "description": "Génère des cas de test en format Gherkin ou actions/résultats à partir des user stories",
+  "name": "QaliLab AI",
+  "description": "Génère des cas de test et améliore les user stories dans Jira",
   "key": "test-case-generator",
   "baseUrl": "https://qalilab-ai.onrender.com",
   "vendor": {
@@ -17,7 +17,7 @@
       {
         "key": "test-generator-item-top",
         "name": {
-          "value": "Générer Cas de Test"
+          "value": "Générer/Modifier User Story"
         },
         "location": "jira.issue.tools",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr"
@@ -25,7 +25,7 @@
       {
         "key": "test-generator-item-operations",
         "name": {
-          "value": "Generate Test Case (EN)"
+          "value": "Generate/Modify User Story (EN)"
         },
         "location": "operations",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=en"
@@ -33,7 +33,7 @@
       {
         "key": "test-generator-item-more",
         "name": {
-          "value": "Générer Cas de Test"
+          "value": "Générer/Modifier User Story"
         },
         "location": "jira.issue.more",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr"
@@ -43,7 +43,7 @@
       {
         "key": "test-generator-panel",
         "name": {
-          "value": "Générateur de Cas de Test"
+          "value": "QaliLab AI"
         },
         "location": "atl.jira.view.issue.right.context",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr",
@@ -54,7 +54,7 @@
       {
         "key": "test-generator-page",
         "name": {
-          "value": "Génération de Cas de Test"
+          "value": "QaliLab AI"
         },
         "url": "/",
         "location": "system.top.navigation.bar"

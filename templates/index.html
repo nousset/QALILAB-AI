@@ -11,8 +11,8 @@
     button:hover { background-color: #45a049; }
     .return-button { background-color: #2196F3; }
     .return-button:hover { background-color: #0b7dda; }
-    .create-ticket-button { background-color: #ff9800; }
-    .create-ticket-button:hover { background-color: #e68a00; }
+    .update-button { background-color: #ff9800; }
+    .update-button:hover { background-color: #e68a00; }
     #status { padding: 10px; margin-top: 10px; display: none; }
     .success { background-color: #dff0d8; color: #3c763d; }
     .error { background-color: #f2dede; color: #a94442; }
@@ -29,10 +29,28 @@
     /* Styles pour les options de langue */
     .options-container { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 15px; }
     .option-group { flex: 1; min-width: 200px; }
+    
+    /* Style de débogage */
+    .debug-info { 
+      background-color: #f0f0f0; 
+      padding: 10px; 
+      margin-bottom: 10px; 
+      border-left: 3px solid #ccc;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
   <h1>Générer des cas de test à partir d'une User Story</h1>
+  
+  <!-- Section de débogage pour afficher la clé d'issue -->
+  <div class="debug-info">
+    <p>Clé d'issue: <span id="issue-key-debug">{% if issue_key %}{{ issue_key }}{% else %}Non définie{% endif %}</span></p>
+    <p>URL actuelle: <span id="current-url"></span></p>
+    <script>
+      document.getElementById('current-url').textContent = window.location.href;
+    </script>
+  </div>
   
   {% if jira_return_url %}
   <div class="jira-integration">
@@ -85,6 +103,12 @@
     {% if jira_return_url %}
       <input type="hidden" name="returnUrl" value="{{ jira_return_url }}">
     {% endif %}
+    
+    <!-- Champ caché pour la clé de l'issue - utiliser issueKey -->
+    {% if issue_key %}
+      <input type="hidden" id="issue_key_field" name="issueKey" value="{{ issue_key }}">
+    {% endif %}
+    
     <p><button type="submit">Générer</button></p>
   </form>
 
@@ -109,10 +133,98 @@
       {% if jira_return_url %}
       <button class="return-button" onclick="copyAndReturn()">Copier et retourner à Jira</button>
       {% endif %}
-      <button class="create-ticket-button" onclick="createJiraTicket()">Créer un ticket Jira</button>
+      <button class="update-button" onclick="updateJiraStory()">Modifier la description dans Jira</button>
     </p>
     
     <script>
+      // Code JavaScript corrigé pour la fonction updateJiraStory
+      function updateJiraStory() {
+        // Utiliser plusieurs méthodes pour obtenir la clé de l'issue
+        let issueKey = "";
+        
+        // Méthode 1: Essayer de récupérer depuis le champ caché
+        const issueKeyField = document.getElementById('issue_key_field');
+        if (issueKeyField && issueKeyField.value) {
+          issueKey = issueKeyField.value;
+        }
+        
+        // Méthode 2: Essayer de récupérer depuis l'URL
+        if (!issueKey) {
+          const urlParams = new URLSearchParams(window.location.search);
+          issueKey = urlParams.get('issueKey');
+        }
+        
+        // Méthode 3: Extraire depuis l'URL de retour
+        if (!issueKey) {
+          const returnUrl = "{{ jira_return_url }}";
+          if (returnUrl) {
+            const matches = returnUrl.match(/\/browse\/([A-Z]+-\d+)/);
+            if (matches && matches.length > 1) {
+              issueKey = matches[1];
+            }
+          }
+        }
+        
+        // Log de débogage - IMPORTANT pour diagnostic
+        console.log("Issue key à utiliser:", issueKey);
+        
+        const generatedTest = document.getElementById('generatedTest').textContent;
+        const statusDiv = document.getElementById('status');
+        
+        if (!issueKey || issueKey.trim() === "") {
+          statusDiv.textContent = 'Erreur: Clé d\'issue manquante ou invalide';
+          statusDiv.className = 'error';
+          statusDiv.style.display = 'block';
+          return;
+        }
+        
+        statusDiv.textContent = 'Mise à jour de la description dans Jira...';
+        statusDiv.className = '';
+        statusDiv.style.display = 'block';
+        
+        // Log du payload pour debugging
+        const payload = {
+          issueKey: issueKey,
+          description: generatedTest
+        };
+        console.log("Payload pour mise à jour:", payload);
+        
+        fetch('/update_jira_story', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          credentials: 'same-origin' // Assure que les cookies sont envoyés
+        })
+        .then(response => {
+          // Log de la réponse brute pour debugging
+          console.log("Statut de la réponse:", response.status);
+          return response.json();
+        })
+        .then(data => {
+          console.log("Données de réponse:", data);
+          if (data.success) {
+            statusDiv.textContent = 'Description mise à jour avec succès dans Jira!';
+            statusDiv.className = 'success';
+            
+            // Ajouter un lien vers l'issue Jira
+            const issueLink = document.createElement('p');
+            issueLink.innerHTML = `<a href="https://{{ JIRA_BASE_URL }}/browse/${issueKey}" target="_blank">Voir l'issue ${issueKey}</a>`;
+            statusDiv.appendChild(issueLink);
+          } else {
+            statusDiv.textContent = 'Erreur lors de la mise à jour: ' + data.message;
+            statusDiv.className = 'error';
+          }
+        })
+        .catch(error => {
+          console.error("Erreur fetch:", error);
+          statusDiv.textContent = 'Erreur de communication avec le serveur: ' + error;
+          statusDiv.className = 'error';
+        });
+      }
+
+      // Fonction copyAndReturn améliorée pour la cohérence
       function copyAndReturn() {
         const generatedTest = document.getElementById('generatedTest').textContent;
         const returnUrl = "{{ jira_return_url }}";
@@ -137,54 +249,6 @@
             statusDiv.className = 'error';
             statusDiv.style.display = 'block';
           });
-      }
-      
-      function createJiraTicket() {
-        const generatedTest = document.getElementById('generatedTest').textContent;
-        const statusDiv = document.getElementById('status');
-        const summary = "Cas de test généré: " + document.querySelector('textarea[name="story"]').value.substring(0, 50) + "...";
-        const issueTypeSelect = document.getElementById('issueType');
-        const issueType = issueTypeSelect ? issueTypeSelect.value : null;
-        
-        statusDiv.textContent = 'Création du ticket Jira en cours...';
-        statusDiv.className = '';
-        statusDiv.style.display = 'block';
-        
-        const payload = {
-            content: generatedTest,
-            summary: summary
-        };
-        
-        if (issueType) {
-            payload.issueType = issueType;
-        }
-        
-        fetch('/create_jira_ticket', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                statusDiv.textContent = 'Ticket Jira créé avec succès: ' + data.ticket_key;
-                statusDiv.className = 'success';
-                
-                // Ajouter un lien vers le ticket créé
-                const ticketLink = document.createElement('p');
-                ticketLink.innerHTML = `<a href="https://{{ JIRA_BASE_URL }}/browse/${data.ticket_key}" target="_blank">Voir le ticket ${data.ticket_key}</a>`;
-                statusDiv.appendChild(ticketLink);
-            } else {
-                statusDiv.textContent = 'Erreur lors de la création du ticket: ' + data.message;
-                statusDiv.className = 'error';
-            }
-        })
-        .catch(error => {
-            statusDiv.textContent = 'Erreur: ' + error;
-            statusDiv.className = 'error';
-        });
       }
     </script>
   {% endif %}
