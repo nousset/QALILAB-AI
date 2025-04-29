@@ -1,20 +1,19 @@
 {
   "name": "QaliLab AI",
   "description": "Génère des cas de test et améliore les user stories dans Jira",
-  "key": "com.amaniconsulting.qalilab-ai", 
+  "key": "com.amaniconsulting.qalilab-ai",
   "baseUrl": "https://qalilab-ai.onrender.com",
   "vendor": {
     "name": "Amani Consulting",
     "url": "https://amaniconsulting.atlassian.net"
   },
   "authentication": {
-    "type": "jwt" 
+    "type": "jwt"
   },
   "apiVersion": 1,
   "scopes": [
-    "read:jira-work",
-    "write:jira-work", 
-    "read:jira-user" 
+    "read",
+    "write"
   ],
   "modules": {
     "webItems": [
@@ -25,7 +24,7 @@
         },
         "location": "jira.issue.tools",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr",
-        "conditions": [ 
+        "conditions": [
           {
             "condition": "user_is_logged_in"
           }
@@ -57,7 +56,7 @@
         "location": "atl.jira.view.issue.right.context",
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr",
         "weight": 100,
-        "headers": { 
+        "headers": {
           "X-Frame-Options": "DENY",
           "Content-Security-Policy": "frame-ancestors 'self' *.atlassian.net"
         }
@@ -78,5 +77,5 @@
     "installed": "/installed",
     "uninstalled": "/uninstalled"
   },
-  "context": "jira" 
+  "context": "jira"
 }
