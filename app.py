@@ -35,7 +35,7 @@ def generate_response(prompt, max_tokens=512):  # Réduit à 512 pour éviter le
     }
     
     try:
-        # Augmenter le timeout pour éviter les erreurs 524
+        # Augmente le timeout pour éviter les erreurs 524
         response = requests.post(API_URL, headers=headers, json=payload, timeout=180)
         if response.status_code == 200:
             result = response.json()
