@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QaliLab AI - Générateur de Tests</title>
+    <title>QaliLab AI - Script d'intégration Console</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -13,362 +13,106 @@
             background-color: #f4f5f7;
         }
         .container {
-            max-width: 1000px;
+            max-width: 800px;
             background: white;
             border-radius: 5px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
             padding: 20px;
             margin-top: 20px;
         }
-        h1 {
+        h1, h2 {
             color: #172B4D;
-            margin-bottom: 20px;
         }
-        .form-label {
-            font-weight: 500;
-            margin-top: 10px;
+        .step {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
         }
-        .btn-primary {
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
             background-color: #0052CC;
-            border-color: #0052CC;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
         }
-        .btn-primary:hover {
-            background-color: #0747A6;
-            border-color: #0747A6;
-        }
-        .btn-secondary {
-            background-color: #42526E;
-            border-color: #42526E;
-        }
-        .btn-secondary:hover {
-            background-color: #344563;
-            border-color: #344563;
-        }
-        .result-container {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #F4F5F7;
-            border-radius: 5px;
-            border-left: 4px solid #36B37E;
-        }
-        .alert-info {
-            background-color: #DEEBFF;
-            border-color: #4C9AFF;
-            color: #0747A6;
-        }
-        .language-selector {
-            margin-bottom: 15px;
+        .step h3 {
+            display: inline-block;
+            vertical-align: middle;
         }
         pre {
             background-color: #f8f9fa;
             padding: 10px;
             border-radius: 4px;
             overflow-x: auto;
+            max-height: 300px;
         }
-        .header-logo {
-            height: 40px;
-            margin-right: 10px;
-        }
-        .back-to-jira {
-            background-color: #0052CC;
-            color: white;
-            text-decoration: none;
-            padding: 6px 12px;
-            border-radius: 3px;
-            font-size: 14px;
-            display: inline-flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .back-to-jira:hover {
-            background-color: #0747A6;
-            color: white;
-        }
-        .back-to-jira svg {
-            margin-right: 5px;
-        }
-        #loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(9, 30, 66, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            visibility: hidden;
-        }
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #ffffff;
-            border-radius: 50%;
-            border-top-color: #0052CC;
-            animation: spin 1s ease-in-out infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .version-info {
-            font-size: 12px;
-            color: #6B778C;
-            margin-top: 20px;
-            text-align: center;
-        }
-        .debug-info {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 12px;
-            display: none;
-        }
-        .debug-toggle {
-            font-size: 12px;
-            color: #6B778C;
-            text-decoration: underline;
-            cursor: pointer;
+        .alert-info {
+            background-color: #DEEBFF;
+            border-color: #4C9AFF;
+            color: #0747A6;
         }
     </style>
 </head>
 <body>
-    <div id="loading-overlay">
-        <div class="spinner"></div>
-    </div>
-
     <div class="container">
-        <div class="d-flex align-items-center mb-4">
-            <h1>QaliLab AI - Générateur de Tests</h1>
-        </div>
-
-        {% if jira_return_url %}
-        <a href="{{ jira_return_url }}" class="back-to-jira">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
-            </svg>
-            Retour à JIRA
-        </a>
-        {% endif %}
-
-        <div class="alert alert-info">
-            <strong>Issue JIRA:</strong> {% if issue_key %}{{ issue_key }}{% else %}Non spécifiée{% endif %}
-        </div>
-
-        <form id="testGeneratorForm" method="post">
-            <input type="hidden" name="issueKey" value="{{ issue_key }}">
-            <input type="hidden" name="returnUrl" value="{{ jira_return_url }}">
-            
-            <div class="mb-3">
-                <label for="story" class="form-label">User Story:</label>
-                <textarea class="form-control" id="story" name="story" rows="6" required>{{ story }}</textarea>
-            </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Format:</label>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="format" id="gherkin" value="gherkin" 
-                        {% if format_choice == "gherkin" %}checked{% endif %}>
-                    <label class="form-check-label" for="gherkin">
-                        Gherkin (Given/When/Then)
-                    </label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="format" id="detailed" value="detailed" 
-                        {% if format_choice == "detailed" %}checked{% endif %}>
-                    <label class="form-check-label" for="detailed">
-                        Détaillé (Actions/Résultats)
-                    </label>
-                </div>
-            </div>
-            
-            <div class="mb-3 language-selector">
-                <label class="form-label">Langue:</label>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="language" id="fr" value="fr"
-                        {% if language_choice == "fr" %}checked{% endif %}>
-                    <label class="form-check-label" for="fr">
-                        Français
-                    </label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="language" id="en" value="en"
-                        {% if language_choice == "en" %}checked{% endif %}>
-                    <label class="form-check-label" for="en">
-                        Anglais
-                    </label>
-                </div>
-            </div>
-            
-            <div class="d-flex">
-                <button type="submit" class="btn btn-primary">Générer le test</button>
-                {% if issue_key and generated_test %}
-                <button type="button" id="updateJiraBtn" class="btn btn-success ms-2">Mettre à jour JIRA</button>
-                <button type="button" id="copyBtn" class="btn btn-secondary ms-2">Copier</button>
-                {% endif %}
-            </div>
-        </form>
+        <h1>QaliLab AI - Script d'intégration Console</h1>
         
-        {% if generated_test %}
-        <div class="result-container">
-            <h3>Résultat:</h3>
-            <pre id="generatedTest">{{ generated_test }}</pre>
-        </div>
-        {% endif %}
-        
-        <div class="version-info">
-            QaliLab AI v1.0 | Développé par Amani Consulting
-            <div>
-                <span class="debug-toggle" onclick="toggleDebugInfo()">Informations de débogage</span>
-            </div>
+        <div class="alert alert-info mb-4">
+            Ce script peut être copié et exécuté dans la console du navigateur pour ajouter un bouton QaliLab AI à vos pages de tickets JIRA.
         </div>
         
-        <div id="debug-info" class="debug-info">
-            <strong>URL de base JIRA:</strong> {{ JIRA_BASE_URL }}<br>
-            <strong>Clé d'issue:</strong> {{ issue_key }}<br>
-            <strong>URL de retour:</strong> {{ jira_return_url }}<br>
-            <strong>Types d'issues disponibles:</strong> {{ issue_types|join(', ') }}<br>
-            <strong>Liens utiles:</strong><br>
-            <a href="/check-app-status" target="_blank">Vérifier le statut de l'application</a><br>
-            <a href="/check-env" target="_blank">Vérifier les variables d'environnement</a><br>
-            <a href="/test-jira-auth" target="_blank">Tester l'authentification JIRA</a><br>
-            <a href="/debug-buttons" target="_blank">Déboguer les boutons</a><br>
-            <a href="/force-add-buttons-to-all-issues" target="_blank">Forcer l'ajout de boutons à tous les tickets</a><br>
-            {% if issue_key %}
-            <a href="/add-link-to-issue/{{ issue_key }}" target="_blank">Ajouter un lien à ce ticket</a>
-            {% endif %}
+        <div class="step">
+            <span class="step-number">1</span>
+            <h3>Ouvrir la console du navigateur</h3>
+            <p>Naviguez vers une page de ticket JIRA, puis ouvrez la console du navigateur :</p>
+            <ul>
+                <li>Chrome/Edge : Appuyez sur <kbd>F12</kbd> ou <kbd>Ctrl+Shift+J</kbd> (Windows/Linux) ou <kbd>Cmd+Option+J</kbd> (Mac)</li>
+                <li>Firefox : Appuyez sur <kbd>F12</kbd> ou <kbd>Ctrl+Shift+K</kbd> (Windows/Linux) ou <kbd>Cmd+Option+K</kbd> (Mac)</li>
+                <li>Safari : Activez d'abord le menu Développeur dans les préférences, puis appuyez sur <kbd>Cmd+Option+C</kbd></li>
+            </ul>
+        </div>
+        
+        <div class="step">
+            <span class="step-number">2</span>
+            <h3>Copier et exécuter le script</h3>
+            <p>Copiez le code ci-dessous et collez-le dans la console, puis appuyez sur <kbd>Entrée</kbd> :</p>
+            <pre id="scriptContent">{{ script }}</pre>
+            <button class="btn btn-primary mt-2" onclick="copyScript()">Copier le script</button>
+        </div>
+        
+        <div class="step">
+            <span class="step-number">3</span>
+            <h3>Résultat</h3>
+            <p>Un bouton "QaliLab AI" devrait apparaître sur la page du ticket. Cliquez dessus pour ouvrir l'outil QaliLab AI dans un nouvel onglet.</p>
+            <p>Note : Ce script doit être exécuté à chaque fois que vous ouvrez une nouvelle page de ticket, car il ne persiste pas lors de la navigation.</p>
+        </div>
+        
+        <div class="alert alert-info mb-4">
+            <strong>Alternative permanente :</strong> Vous pouvez également utiliser notre <a href="{{ url_for('create_help_script') }}">script d'aide bookmarklet</a> qui peut être installé dans votre barre de favoris pour un accès plus facile.
+        </div>
+        
+        <div class="mt-4 text-center">
+            <a href="{{ jira_url }}" class="btn btn-outline-primary">Retourner à JIRA</a>
+            <a href="{{ app_url }}" class="btn btn-outline-secondary ms-2">Page d'accueil QaliLab AI</a>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('testGeneratorForm');
-            const loadingOverlay = document.getElementById('loading-overlay');
-            const updateJiraBtn = document.getElementById('updateJiraBtn');
-            const copyBtn = document.getElementById('copyBtn');
-            const generatedTest = document.getElementById('generatedTest');
-            
-            if (form) {
-                form.addEventListener('submit', function() {
-                    loadingOverlay.style.visibility = 'visible';
-                });
-            }
-            
-            if (updateJiraBtn) {
-                updateJiraBtn.addEventListener('click', function() {
-                    updateJiraStory();
-                });
-            }
-            
-            if (copyBtn) {
-                copyBtn.addEventListener('click', function() {
-                    copyToClipboard();
-                });
-            }
-            
-            function updateJiraStory() {
-                const issueKey = document.querySelector('input[name="issueKey"]').value;
-                const generatedText = generatedTest.textContent;
-                
-                if (!issueKey || !generatedText) {
-                    alert('Informations manquantes pour la mise à jour');
-                    return;
-                }
-                
-                loadingOverlay.style.visibility = 'visible';
-                
-                fetch('/update_jira_story', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        issueKey: issueKey,
-                        description: generatedText
-                    })
+        function copyScript() {
+            const scriptContent = document.getElementById('scriptContent').textContent;
+            navigator.clipboard.writeText(scriptContent)
+                .then(() => {
+                    alert('Script copié dans le presse-papier!');
                 })
-                .then(response => response.json())
-                .then(data => {
-                    loadingOverlay.style.visibility = 'hidden';
-                    if (data.success) {
-                        alert('La description de l\'issue a été mise à jour avec succès!');
-                    } else {
-                        alert('Erreur lors de la mise à jour: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    loadingOverlay.style.visibility = 'hidden';
-                    alert('Erreur: ' + error);
+                .catch(err => {
+                    console.error('Erreur lors de la copie: ', err);
+                    alert('Erreur lors de la copie. Veuillez sélectionner manuellement le texte et le copier.');
                 });
-            }
-            
-            function copyToClipboard() {
-                const textToCopy = generatedTest.textContent;
-                navigator.clipboard.writeText(textToCopy)
-                    .then(() => {
-                        alert('Texte copié dans le presse-papier!');
-                    })
-                    .catch(err => {
-                        console.error('Erreur lors de la copie: ', err);
-                        alert('Erreur lors de la copie. Veuillez réessayer.');
-                    });
-            }
-
-            // Afficher un avertissement si on tente de quitter la page avec du texte généré
-            window.addEventListener('beforeunload', function(e) {
-                if (generatedTest && generatedTest.textContent.trim() && !confirm('Vous avez du contenu généré. Êtes-vous sûr de vouloir quitter cette page?')) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                }
-            });
-        });
-        
-        function toggleDebugInfo() {
-            const debugInfo = document.getElementById('debug-info');
-            debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
         }
-
-        // Script pour diagnostiquer les problèmes avec les boutons JIRA
-        function checkJiraIntegration() {
-            try {
-                console.log("Vérification de l'intégration JIRA...");
-                // Vérifier si nous sommes dans un iframe
-                const isInIframe = window !== window.top;
-                console.log("Est dans un iframe: ", isInIframe);
-                
-                // Vérifier l'origine de l'iframe
-                if (isInIframe) {
-                    try {
-                        console.log("Origine parent: ", window.parent.origin);
-                    } catch (e) {
-                        console.log("Impossible d'accéder à l'origine du parent. Possible problème de sécurité: ", e.message);
-                    }
-                }
-                
-                // Vérifier les headers HTTP
-                fetch('/check-app-status')
-                    .then(response => {
-                        console.log("Headers de réponse:");
-                        for (let [key, value] of response.headers.entries()) {
-                            console.log(`${key}: ${value}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log("Statut de l'application:", data);
-                    })
-                    .catch(error => {
-                        console.error("Erreur lors de la vérification: ", error);
-                    });
-            } catch (e) {
-                console.error("Erreur lors du diagnostic: ", e);
-            }
-        }
-        
-        // Exécuter la vérification au chargement
-        setTimeout(checkJiraIntegration, 1000);
     </script>
 </body>
 </html>

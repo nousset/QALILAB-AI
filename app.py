@@ -18,7 +18,10 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
-API_URL = os.getenv("API_URL",  "https://current-constraints-sitting-processing.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL",  "https://diseases-standings-mature-established.trycloudflare.com/v1/chat/completions")
+APP_BASE_URL = os.getenv("APP_BASE_URL", "https://qalilab-ai.onrender.com")
+
+logger.info(f"URL de base de l'application: {APP_BASE_URL}")
 
 app = Flask(__name__)
 
@@ -134,7 +137,7 @@ def add_comment_button_to_issue(issue_key):
     api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/issue/{issue_key}/comment"
     auth = (JIRA_EMAIL, JIRA_API_TOKEN)
     
-    button_link = f"https://qalilab-ai.onrender.com/jira-panel?issueKey={issue_key}"
+    button_link = f"{APP_BASE_URL}/jira-panel?issueKey={issue_key}"
     
     # Utiliser le formatage Atlassian pour créer un bouton plus visible
     comment = {
@@ -181,7 +184,8 @@ def check_app_status():
         "JIRA_BASE_URL": bool(JIRA_BASE_URL),
         "JIRA_EMAIL": bool(JIRA_EMAIL),
         "JIRA_API_TOKEN": bool(JIRA_API_TOKEN),
-        "JIRA_PROJECT_KEY": bool(JIRA_PROJECT_KEY)
+        "JIRA_PROJECT_KEY": bool(JIRA_PROJECT_KEY),
+        "APP_BASE_URL": bool(APP_BASE_URL)
     }
     
     # Vérifie les templates
@@ -195,8 +199,8 @@ def check_app_status():
         "env_vars": env_vars,
         "templates_directory_exists": templates_dir,
         "index_template_exists": index_template,
-        "app_url": request.url_root,
-        "descriptor_url": request.url_root.rstrip('/') + "/atlassian-connect.json"
+        "app_url": APP_BASE_URL,
+        "descriptor_url": f"{APP_BASE_URL}/atlassian-connect.json"
     }
     
     return jsonify(status)
@@ -242,7 +246,7 @@ def descriptor():
             descriptor = json.load(f)
         
         # Assure-toi que l'URL de base est correcte
-        descriptor["baseUrl"] = "https://qalilab-ai.onrender.com"
+        descriptor["baseUrl"] = APP_BASE_URL
         
         # Assure-toi que les headers de sécurité sont corrects
         if "webPanels" in descriptor["modules"]:
@@ -318,6 +322,7 @@ def check_env():
         "JIRA_EMAIL": JIRA_EMAIL[:3] + "***" if JIRA_EMAIL else None,
         "JIRA_API_TOKEN": "***" if JIRA_API_TOKEN else None,
         "JIRA_PROJECT_KEY": JIRA_PROJECT_KEY,
+        "APP_BASE_URL": APP_BASE_URL
     }
     return jsonify(env_status)
 
@@ -453,7 +458,7 @@ def debug_buttons():
         for item in web_items:
             url = item.get("url", "")
             if url.startswith("/"):
-                url = f"https://qalilab-ai.onrender.com{url}"
+                url = f"{APP_BASE_URL}{url}"
             test_urls.append({
                 "key": item.get("key"),
                 "name": item.get("name", {}).get("value", ""),
@@ -463,11 +468,21 @@ def debug_buttons():
                                 .replace("{issue.description}", "Test Description")
             })
         
+        # Ajouter des informations sur l'environnement Render
+        render_info = {
+            "render_service_url": APP_BASE_URL,
+            "env_vars_set": {
+                "APP_BASE_URL": bool(os.getenv("APP_BASE_URL")),
+                "PORT": bool(os.getenv("PORT"))
+            }
+        }
+        
         debug_info = {
             "web_items": web_items,
             "web_panels": web_panels,
             "jira_base_url": jira_base_url,
-            "test_urls": test_urls
+            "test_urls": test_urls,
+            "render_info": render_info
         }
         
         return jsonify(debug_info)
@@ -477,7 +492,6 @@ def debug_buttons():
 @app.route("/create-help-script", methods=["GET"])
 def create_help_script():
     """Génère une page avec les instructions pour installer le script d'aide"""
-    app_url = "https://qalilab-ai.onrender.com"
     
     bookmarklet_code = f"""
         javascript:(function(){{
@@ -486,7 +500,7 @@ def create_help_script():
                 const issueKeyMatch = path.match(/\\/browse\\/([A-Z]+-\\d+)/);
                 if (issueKeyMatch && issueKeyMatch[1]) {{
                     const issueKey = issueKeyMatch[1];
-                    window.open('{app_url}/jira-panel?issueKey=' + issueKey, '_blank');
+                    window.open('{APP_BASE_URL}/jira-panel?issueKey=' + issueKey, '_blank');
                 }} else {{
                     alert('Veuillez naviguer vers une page de ticket JIRA pour utiliser cet outil.');
                 }}
@@ -501,7 +515,7 @@ def create_help_script():
     
     return render_template("help_script.html", 
                           bookmarklet_code=bookmarklet_code,
-                          app_url=app_url,
+                          app_url=APP_BASE_URL,
                           jira_url=f"https://{JIRA_BASE_URL}")
 
 @app.route("/add-links-to-user-stories", methods=["GET"])
@@ -559,6 +573,90 @@ def add_links_to_user_stories():
         logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 500
 
+@app.route("/create-bookmarklet-script", methods=["GET"])
+def create_bookmarklet_script():
+    """Génère un script JavaScript qui peut être exécuté dans la console du navigateur"""
+    
+    script = f"""
+// Script d'aide pour QaliLab AI
+(function() {{
+    // Fonction pour ajouter un bouton dans l'interface JIRA
+    function ajouterBoutonQaliLabAI() {{
+        // Chercher des emplacements possibles pour ajouter le bouton
+        const toolsMenu = document.querySelector('[data-testid="issue-actions-container"]');
+        const moreMenu = document.querySelector('.more-actions');
+        const issueHeader = document.querySelector('.issue-header-content');
+        
+        // Récupérer la clé du ticket depuis l'URL
+        const urlMatch = window.location.href.match(/\\/browse\\/([A-Z]+-\\d+)/);
+        const issueKey = urlMatch ? urlMatch[1] : '';
+        
+        if (!issueKey) {{
+            console.error('Impossible de trouver la clé du ticket.');
+            return;
+        }}
+        
+        const buttonLink = '{APP_BASE_URL}/jira-panel?issueKey=' + issueKey;
+        
+        // Style CSS pour le bouton
+        const style = document.createElement('style');
+        style.textContent = `
+            .qalilab-button {{
+                background-color: #0052CC;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 6px 12px;
+                font-size: 14px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                margin: 5px;
+            }}
+            .qalilab-button:hover {{
+                background-color: #0747A6;
+            }}
+        `;
+        document.head.appendChild(style);
+        
+        // Créer le bouton
+        const button = document.createElement('button');
+        button.className = 'qalilab-button';
+        button.textContent = 'QaliLab AI';
+        button.onclick = function() {{
+            window.open(buttonLink, '_blank');
+        }};
+        
+        // Ajouter le bouton à l'emplacement approprié
+        if (toolsMenu) {{
+            toolsMenu.appendChild(button);
+            console.log('Bouton QaliLab AI ajouté à la barre d\\'outils');
+        }} else if (moreMenu) {{
+            moreMenu.parentNode.insertBefore(button, moreMenu);
+            console.log('Bouton QaliLab AI ajouté près du menu Plus');
+        }} else if (issueHeader) {{
+            issueHeader.appendChild(button);
+            console.log('Bouton QaliLab AI ajouté à l\\'en-tête du ticket');
+        }} else {{
+            console.error('Aucun emplacement trouvé pour ajouter le bouton');
+            alert('QaliLab AI: Impossible de trouver un emplacement pour ajouter le bouton. Veuillez vous assurer que vous êtes sur une page de ticket JIRA.');
+        }}
+    }}
+    
+    // Exécuter la fonction
+    ajouterBoutonQaliLabAI();
+    
+    // Message de confirmation
+    console.log('Script QaliLab AI exécuté avec succès');
+    alert('QaliLab AI: Le bouton a été ajouté à la page. Si vous ne le voyez pas, veuillez rafraîchir la page et réessayer.');
+}})();
+    """
+    
+    return render_template("bookmarklet_script.html", 
+                          script=script,
+                          app_url=APP_BASE_URL,
+                          jira_url=f"https://{JIRA_BASE_URL}")
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     story_text = ""
@@ -597,8 +695,9 @@ def index():
                             language_choice=language_choice,
                             generated_test=generated_test,
                             jira_return_url=jira_return_url,
-                            issue_key=issue_key,  # Passer la clé de l'issue au template
-                            JIRA_BASE_URL=JIRA_BASE_URL,
+                            issue_key=issue_key, 
+                             JIRA_BASE_URL=JIRA_BASE_URL,
+                            APP_BASE_URL=APP_BASE_URL,
                             issue_types=issue_types)
     
     if request.method == "POST":
@@ -629,11 +728,44 @@ def index():
                             jira_return_url=jira_return_url,
                             issue_key=issue_key,  # Passer la clé de l'issue au template
                             JIRA_BASE_URL=JIRA_BASE_URL,
+                            APP_BASE_URL=APP_BASE_URL,
                             issue_types=issue_types)
+
+@app.route("/direct-access/<issue_key>")
+def direct_access(issue_key):
+    """Permet d'accéder directement à l'outil avec une clé d'issue"""
+    if not issue_key or not re.match(r'^[A-Z]+-\d+$', issue_key):
+        return jsonify({"error": "Format de clé d'issue invalide"}), 400
+    
+    # Récupérer les informations de l'issue depuis JIRA
+    api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/issue/{issue_key}"
+    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+    
+    try:
+        response = requests.get(api_endpoint, auth=auth)
+        if response.status_code != 200:
+            return jsonify({"error": f"Erreur lors de la récupération de l'issue: {response.status_code}"}), 400
+        
+        issue_data = response.json()
+        description = issue_data.get("fields", {}).get("description", "")
+        
+        # Construire l'URL de redirection
+        jira_return_url = f"https://{JIRA_BASE_URL}/browse/{issue_key}"
+        redirect_url = url_for('index', 
+                              story=description,
+                              issueKey=issue_key,
+                              returnUrl=jira_return_url,
+                              language="fr",
+                              autoGenerate="true")
+        
+        return redirect(redirect_url)
+    except Exception as e:
+        return jsonify({"error": f"Erreur: {str(e)}"}), 500
 
 if __name__ == "__main__":
     # Créer le dossier templates s'il n'existe pas
     if not os.path.exists('templates'):
         os.makedirs('templates')
     
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))) # Passer la clé de l'issue au template
+                           
