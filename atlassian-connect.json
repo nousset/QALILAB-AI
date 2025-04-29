@@ -31,14 +31,6 @@
         ]
       },
       {
-        "key": "test-generator-item-operations",
-        "name": {
-          "value": "Generate/Modify User Story (EN)"
-        },
-        "location": "operations",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=en"
-      },
-      {
         "key": "test-generator-item-more",
         "name": {
           "value": "Générer/Modifier User Story"
@@ -57,7 +49,7 @@
         "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr",
         "weight": 100,
         "headers": {
-          "X-Frame-Options": "DENY",
+          "X-Frame-Options": "SAMEORIGIN",
           "Content-Security-Policy": "frame-ancestors 'self' *.atlassian.net"
         }
       }

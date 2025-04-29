@@ -18,7 +18,7 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
-API_URL = os.getenv("API_URL",  "https://minnesota-logic-acm-vpn.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL",  "https://diseases-standings-mature-established.trycloudflare.com/v1/chat/completions")
 
 app = Flask(__name__)
 
@@ -136,10 +136,9 @@ def add_comment_button_to_issue(issue_key):
     
     button_link = f"https://qalilab-ai.onrender.com/jira-panel?issueKey={issue_key}"
     
-    link_text = f"[Générer des cas de test|{button_link}]"
-    
+    # Utiliser un formatage plus visible dans Jira
     comment = {
-        "body": f"Cliquez ici pour {link_text} pour cette user story."
+        "body": f"h3. QaliLab AI\n\n*[Cliquez ici pour générer des cas de test|{button_link}]* pour cette user story."
     }
     
     try:
@@ -231,14 +230,25 @@ def handle_get_issue_types():
 def descriptor():
     """Fournit le descripteur atlassian-connect.json"""
     logger.info("Demande du descripteur reçue!")
-    with open('atlassian-connect.json', 'r') as f:
-        descriptor = json.load(f)
-    
-    # Assure-toi que l'URL de base est correcte
-    descriptor["baseUrl"] = "https://qalilab-ai.onrender.com"
-    
-    logger.info(f"Descripteur servi: {json.dumps(descriptor)}")
-    return jsonify(descriptor)
+    try:
+        with open('atlassian-connect.json', 'r') as f:
+            descriptor = json.load(f)
+        
+        # Assure-toi que l'URL de base est correcte
+        descriptor["baseUrl"] = "https://qalilab-ai.onrender.com"
+        
+        # Assure-toi que les headers de sécurité sont corrects
+        if "webPanels" in descriptor["modules"]:
+            for panel in descriptor["modules"]["webPanels"]:
+                if "headers" in panel:
+                    panel["headers"]["X-Frame-Options"] = "SAMEORIGIN"
+                    logger.info("Header X-Frame-Options modifié à SAMEORIGIN")
+        
+        logger.info(f"Descripteur servi: {json.dumps(descriptor)}")
+        return jsonify(descriptor)
+    except Exception as e:
+        logger.error(f"Erreur lors du chargement du descripteur: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/jira-panel")
 def jira_panel():
@@ -388,6 +398,95 @@ def add_links_to_user_stories():
         error_msg = f"Erreur: {str(e)}"
         logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 500
+
+# Nouvelle route de diagnostic pour tester l'affichage des boutons
+@app.route("/debug-buttons")
+def debug_buttons():
+    """Affiche les informations de débogage pour les boutons"""
+    try:
+        with open('atlassian-connect.json', 'r') as f:
+            descriptor = json.load(f)
+        
+        # Extraction des informations sur les webItems
+        web_items = descriptor.get("modules", {}).get("webItems", [])
+        web_panels = descriptor.get("modules", {}).get("webPanels", [])
+        
+        # Informations sur les configurations
+        jira_base_url = JIRA_BASE_URL
+        
+        # Construction d'URLs de test directes pour chaque webItem
+        test_urls = []
+        for item in web_items:
+            url = item.get("url", "")
+            if url.startswith("/"):
+                url = f"https://qalilab-ai.onrender.com{url}"
+            test_urls.append({
+                "key": item.get("key"),
+                "name": item.get("name", {}).get("value", ""),
+                "location": item.get("location"),
+                "test_url": url.replace("{issue.key}", "ACD-5325")
+                                .replace("{issue.summary}", "Test Summary")
+                                .replace("{issue.description}", "Test Description")
+            })
+        
+        debug_info = {
+            "web_items": web_items,
+            "web_panels": web_panels,
+            "jira_base_url": jira_base_url,
+            "test_urls": test_urls
+        }
+        
+        return jsonify(debug_info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Nouvelle route pour forcer l'ajout des boutons à tous les tickets
+@app.route("/force-add-buttons-to-all-issues")
+def force_add_buttons_to_all_issues():
+    """Force l'ajout de commentaires avec des liens pour tous les tickets du projet"""
+    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+    jql = f"project = {JIRA_PROJECT_KEY} ORDER BY updated DESC"
+    
+    params = {
+        "jql": jql,
+        "maxResults": 50
+    }
+    
+    try:
+        api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/search"
+        response = requests.get(api_endpoint, auth=auth, params=params)
+        
+        if response.status_code != 200:
+            return jsonify({
+                "success": False,
+                "message": f"Erreur lors de la récupération des tickets: {response.status_code} - {response.text}"
+            }), 400
+        
+        data = response.json()
+        issues = data.get("issues", [])
+        
+        results = []
+        for issue in issues:
+            issue_key = issue["key"]
+            success, message = add_comment_button_to_issue(issue_key)
+            results.append({
+                "issue_key": issue_key,
+                "success": success,
+                "message": message
+            })
+        
+        successful = sum(1 for r in results if r.get("success"))
+        
+        return jsonify({
+            "success": True,
+            "message": f"Traitement terminé. {successful}/{len(results)} liens ajoutés avec succès.",
+            "results": results
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Erreur: {str(e)}"
+        }), 500
 
 @app.route("/", methods=["GET", "POST"])
 def index():
