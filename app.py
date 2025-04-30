@@ -652,77 +652,129 @@ def direct_test():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    story_text = ""
-    format_choice = "gherkin"
-    language_choice = "fr"  # Français par défaut
-    generated_test = None
-    jira_return_url = None
-    issue_key = ""
-    
-    # Récupérer les paramètres
-    if request.method == "GET":
-        story_text = request.args.get("story", "").strip()
-        format_choice = request.args.get("format", "gherkin")
-        language_choice = request.args.get("language", "fr")
-        jira_return_url = request.args.get("returnUrl", "")
-        auto_generate = request.args.get("autoGenerate", "false").lower() == "true"
+    """Page d'accueil de l'application"""
+    try:
+        story_text = ""
+        format_choice = "gherkin"
+        language_choice = "fr"  # Français par défaut
+        generated_test = None
+        jira_return_url = None
+        issue_key = ""
         
-        # Récupérer issueKey ou l'extraire de l'URL de retour si nécessaire
-        issue_key = request.args.get("issueKey", "")
-        if not issue_key and jira_return_url:
-            # Essayer d'extraire l'ID de l'issue depuis l'URL de retour
-            issue_key = extract_issue_key_from_url(jira_return_url)
-            logger.info(f"Issue key extraite de l'URL de retour: {issue_key}")
+        # Récupérer les paramètres
+        if request.method == "GET":
+            story_text = request.args.get("story", "").strip()
+            format_choice = request.args.get("format", "gherkin")
+            language_choice = request.args.get("language", "fr")
+            jira_return_url = request.args.get("returnUrl", "")
+            auto_generate = request.args.get("autoGenerate", "false").lower() == "true"
+            
+            # Récupérer issueKey ou l'extraire de l'URL de retour si nécessaire
+            issue_key = request.args.get("issueKey", "")
+            if not issue_key and jira_return_url:
+                # Essayer d'extraire l'ID de l'issue depuis l'URL de retour
+                issue_key = extract_issue_key_from_url(jira_return_url)
+                logger.info(f"Issue key extraite de l'URL de retour: {issue_key}")
+            
+            logger.info(f"Issue key finale: {issue_key}")
+            
+            if story_text and auto_generate:
+                try:
+                    prompt = build_prompt(story_text, format_choice, language_choice)
+                    generated_test = generate_response(prompt, max_tokens=512)
+                except Exception as e:
+                    logger.error(f"Erreur lors de la génération du test: {str(e)}")
+                    generated_test = f"Erreur lors de la génération du test: {str(e)}"
         
-        logger.info(f"Issue key finale: {issue_key}")
+        # Pour POST
+        elif request.method == "POST":
+            story_text = request.form.get("story", "").strip()
+            format_choice = request.form.get("format", "gherkin")
+            language_choice = request.form.get("language", "fr")
+            jira_return_url = request.form.get("returnUrl", "")
+            
+            # Récupérer issueKey ou l'extraire de l'URL de retour
+            issue_key = request.form.get("issueKey", "")
+            if not issue_key and jira_return_url:
+                issue_key = extract_issue_key_from_url(jira_return_url)
+                logger.info(f"Issue key extraite de l'URL de retour (POST): {issue_key}")
+            
+            if story_text:
+                try:
+                    prompt = build_prompt(story_text, format_choice, language_choice)
+                    generated_test = generate_response(prompt, max_tokens=512)
+                except Exception as e:
+                    logger.error(f"Erreur lors de la génération du test: {str(e)}")
+                    generated_test = f"Erreur lors de la génération du test: {str(e)}"
         
-        if story_text and auto_generate:
-            prompt = build_prompt(story_text, format_choice, language_choice)
-            generated_test = generate_response(prompt, max_tokens=512)
-    
-        issue_types = get_issue_types()
+        # Récupération des types d'issues en toute sécurité
+        issue_types = []
+        try:
+            issue_types = get_issue_types()
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des types d'issues: {str(e)}")
         
-        return render_template("index.html",
-                            story=story_text,
-                            format_choice=format_choice,
-                            language_choice=language_choice,
-                            generated_test=generated_test,
-                            jira_return_url=jira_return_url,
-                            issue_key=issue_key, 
-                            JIRA_BASE_URL=JIRA_BASE_URL,
-                            APP_BASE_URL=APP_BASE_URL,
-                            issue_types=issue_types)
-    
-    if request.method == "POST":
-        story_text = request.form.get("story", "").strip()
-        format_choice = request.form.get("format", "gherkin")
-        language_choice = request.form.get("language", "fr")
-        jira_return_url = request.form.get("returnUrl", "")
-        
-        # Récupérer issueKey ou l'extraire de l'URL de retour
-        issue_key = request.form.get("issueKey", "")
-        if not issue_key and jira_return_url:
-            issue_key = extract_issue_key_from_url(jira_return_url)
-            logger.info(f"Issue key extraite de l'URL de retour (POST): {issue_key}")
-        
-        logger.info(f"Issue key from form: {issue_key}")
-        
-        if story_text:
-            prompt = build_prompt(story_text, format_choice, language_choice)
-            generated_test = generate_response(prompt, max_tokens=512)
-        
-        issue_types = get_issue_types()
-        
-        return render_template("index.html",
-                            story=story_text,
-                            format_choice=format_choice,
-                            language_choice=language_choice,
-                            generated_test=generated_test,
-                            jira_return_url=jira_return_url,
-                            issue_key=issue_key,
-                            JIRA_BASE_URL=JIRA_BASE_URL,
-                            APP_BASE_URL=APP_BASE_URL,
-                            issue_types=issue_types)
+        # Vérifier si le template existe
+        if os.path.exists('templates/index.html'):
+            return render_template("index.html",
+                                story=story_text,
+                                format_choice=format_choice,
+                                language_choice=language_choice,
+                                generated_test=generated_test,
+                                jira_return_url=jira_return_url,
+                                issue_key=issue_key,
+                                JIRA_BASE_URL=JIRA_BASE_URL,
+                                APP_BASE_URL=APP_BASE_URL,
+                                issue_types=issue_types)
+        else:
+            # Réponse de secours si le template n'existe pas
+            return f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>QaliLab AI</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                    .alert {{ background-color: #f8d7da; padding: 15px; border-radius: 4px; margin-bottom: 20px; }}
+                    .info {{ background-color: #d1ecf1; padding: 15px; border-radius: 4px; }}
+                </style>
+            </head>
+            <body>
+                <h1>QaliLab AI</h1>
+                <div class="info">
+                    <p>L'application QaliLab AI est fonctionnelle.</p>
+                    <p>Template non trouvé. Veuillez vous assurer que le dossier templates et le fichier index.html existent.</p>
+                    <p>Paramètres reçus :</p>
+                    <ul>
+                        <li>Issue Key: {issue_key}</li>
+                        <li>Format: {format_choice}</li>
+                        <li>Langue: {language_choice}</li>
+                    </ul>
+                </div>
+            </body>
+            </html>
+            """
+    except Exception as e:
+        logger.error(f"Erreur dans la route index: {str(e)}")
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>QaliLab AI - Erreur</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                .error {{ background-color: #f8d7da; padding: 15px; border-radius: 4px; }}
+            </style>
+        </head>
+        <body>
+            <h1>QaliLab AI</h1>
+            <div class="error">
+                <h2>Une erreur est survenue</h2>
+                <p>{str(e)}</p>
+            </div>
+        </body>
+        </html>
+        """
 
 if __name__ == "__main__":
     # Créer le dossier templates s'il n'existe pas
