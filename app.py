@@ -364,7 +364,7 @@ def descriptor():
                 }
             ]
         },
-        "enableLicensing": false
+        "enableLicensing": False  # Corrigé : false -> False (majuscule en Python)
     }
     
     # Écrire également le descripteur dans un fichier pour référence
