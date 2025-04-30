@@ -1,14 +1,18 @@
 from dotenv import load_dotenv
 import os
 import re
-from flask import Flask, request, render_template, jsonify, redirect, url_for
+import time
+from flask import Flask, request, render_template, jsonify, redirect, url_for, send_file
 import requests
 import json
 import logging
+from datetime import datetime
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Configuration du logging améliorée
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                   handlers=[logging.StreamHandler()])
+logger = logging.getLogger("qalilab-ai")
 
 # Chargement des variables d'environnement
 load_dotenv()
@@ -18,14 +22,30 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
-API_URL = os.getenv("API_URL",  "https://diseases-standings-mature-established.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL", "https://remark-flags-unlike-friday.trycloudflare.com/v1/chat/completions/v1/chat/completions")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://qalilab-ai.onrender.com")
 
+logger.info(f"Démarrage de l'application QaliLab AI")
 logger.info(f"URL de base de l'application: {APP_BASE_URL}")
+logger.info(f"URL de base Jira: {JIRA_BASE_URL}")
 
 app = Flask(__name__)
 
-def generate_response(prompt, max_tokens=512):  # Réduit à 512 pour éviter les timeouts
+# Ajouter les headers CORS et de sécurité à toutes les réponses
+@app.after_request
+def add_headers(response):
+    """Ajoute les headers nécessaires pour l'intégration avec Jira Cloud"""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+    
+    # Headers pour permettre l'affichage dans des iframes Jira
+    response.headers['X-Frame-Options'] = 'ALLOW-FROM https://*.atlassian.net'
+    response.headers['Content-Security-Policy'] = "frame-ancestors 'self' *.atlassian.net"
+    
+    return response
+
+def generate_response(prompt, max_tokens=206):
     headers = {"Content-Type": "application/json"}
     payload = {
         "model": "mistral-7b-instruct-v0.3",
@@ -194,6 +214,8 @@ def check_app_status():
     
     status = {
         "app_running": True,
+        "app_version": "1.2",  # Mise à jour de la version
+        "server_time": datetime.now().isoformat(),
         "descriptor_exists": descriptor_exists,
         "descriptor_content": descriptor_content,
         "env_vars": env_vars,
@@ -238,28 +260,119 @@ def handle_get_issue_types():
     return jsonify({"issue_types": issue_types})
 
 @app.route("/atlassian-connect.json")
+@app.route("/atlassian-connect.json")
 def descriptor():
-    """Fournit le descripteur atlassian-connect.json"""
+    """Fournit le descripteur atlassian-connect.json conforme aux standards Jira Cloud"""
     logger.info("Demande du descripteur reçue!")
-    try:
-        with open('atlassian-connect.json', 'r') as f:
-            descriptor = json.load(f)
-        
-        # Assure-toi que l'URL de base est correcte
-        descriptor["baseUrl"] = APP_BASE_URL
-        
-        # Assure-toi que les headers de sécurité sont corrects
-        if "webPanels" in descriptor["modules"]:
-            for panel in descriptor["modules"]["webPanels"]:
-                if "headers" in panel:
-                    panel["headers"]["X-Frame-Options"] = "SAMEORIGIN"
-                    logger.info("Header X-Frame-Options modifié à SAMEORIGIN")
-        
-        logger.info(f"Descripteur servi: {json.dumps(descriptor)}")
-        return jsonify(descriptor)
-    except Exception as e:
-        logger.error(f"Erreur lors du chargement du descripteur: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    
+    # Descripteur conforme optimisé pour Jira Cloud
+    descriptor = {
+        "name": "QaliLab AI",
+        "description": "Générateur de cas de test pour les user stories Jira",
+        "key": "com.amaniconsulting.qalilab-ai",
+        "baseUrl": APP_BASE_URL,
+        "vendor": {
+            "name": "Amani Consulting",
+            "url": f"https://{JIRA_BASE_URL}"
+        },
+        "authentication": {
+            "type": "jwt"
+        },
+        "apiVersion": 1,
+        "lifecycle": {
+            "installed": "/installed",
+            "uninstalled": "/uninstalled"
+        },
+        "scopes": [
+            "read",
+            "write"
+        ],
+        "modules": {
+            "webItems": [
+                {
+                    "key": "qalilab-tools-button",
+                    "name": {
+                        "value": "Générer des tests"
+                    },
+                    "location": "jira.issue.tools",
+                    "url": "/jira-panel?issueKey={issue.key}",
+                    "target": {
+                        "type": "dialog",
+                        "options": {
+                            "width": "85%",
+                            "height": "85%"
+                        }
+                    },
+                    "tooltip": {
+                        "value": "Générer des cas de test pour cette User Story"
+                    },
+                    "conditions": [
+                        {
+                            "condition": "user_is_logged_in"
+                        }
+                    ]
+                },
+                {
+                    "key": "qalilab-header-button",
+                    "name": {
+                        "value": "Générer des tests"
+                    },
+                    "location": "jira.issue.header-actions",
+                    "url": "/jira-panel?issueKey={issue.key}",
+                    "tooltip": {
+                        "value": "Générer des cas de test pour cette User Story"
+                    },
+                    "conditions": [
+                        {
+                            "condition": "user_is_logged_in"
+                        }
+                    ]
+                }
+            ],
+            "webPanels": [
+                {
+                    "key": "qalilab-right-panel",
+                    "name": {
+                        "value": "QaliLab AI"
+                    },
+                    "location": "atl.jira.view.issue.right.context",
+                    "url": "/jira-panel?issueKey={issue.key}",
+                    "layout": {
+                        "width": "100%",
+                        "height": "100%"
+                    },
+                    "conditions": [
+                        {
+                            "condition": "user_is_logged_in"
+                        }
+                    ]
+                }
+            ],
+            "generalPages": [
+                {
+                    "key": "qalilab-main-page",
+                    "name": {
+                        "value": "QaliLab AI"
+                    },
+                    "url": "/",
+                    "location": "jira.top.navigation.bar",
+                    "conditions": [
+                        {
+                            "condition": "user_is_logged_in"
+                        }
+                    ]
+                }
+            ]
+        },
+        "enableLicensing": false
+    }
+    
+    # Écrire également le descripteur dans un fichier pour référence
+    with open('atlassian-connect.json', 'w') as f:
+        json.dump(descriptor, f, indent=2)
+    
+    logger.info(f"Descripteur servi: {json.dumps(descriptor)[:200]}...")
+    return jsonify(descriptor)
 
 @app.route("/jira-panel")
 def jira_panel():
@@ -269,7 +382,7 @@ def jira_panel():
     description = request.args.get("description", "")
     language = request.args.get("language", "fr")
     
-    logger.info(f"Requête reçue pour l'issue {issue_key}")
+    logger.info(f"Requête jira-panel reçue pour l'issue {issue_key}")
     
     # URL pour retourner à l'issue Jira
     jira_return_url = f"https://{JIRA_BASE_URL}/browse/{issue_key}"
@@ -277,7 +390,7 @@ def jira_panel():
     # Construire l'URL avec les paramètres - utiliser issueKey pour rester cohérent
     redirect_url = url_for('index', 
                           story=description,
-                          issueKey=issue_key,  # Utiliser issueKey et non issue_key
+                          issueKey=issue_key,
                           returnUrl=jira_return_url,
                           language=language,
                           autoGenerate="true")
@@ -289,13 +402,20 @@ def jira_panel():
 def installed():
     """Gère l'installation de l'application"""
     logger.info("Application installée!")
-    return jsonify({"status": "ok"})
+    # Loguer les données reçues pour le débogage
+    try:
+        data = request.json
+        logger.info(f"Données d'installation reçues: {json.dumps(data)[:200]}...")
+    except Exception as e:
+        logger.warning(f"Impossible de parser les données d'installation: {str(e)}")
+    
+    return jsonify({"status": "ok", "message": "Application installée avec succès"})
 
 @app.route("/uninstalled", methods=["POST"])
 def uninstalled():
     """Gère la désinstallation de l'application"""
     logger.info("Application désinstallée!")
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "message": "Application désinstallée avec succès"})
 
 @app.route("/add-link-to-issue/<issue_key>")
 def add_link(issue_key):
@@ -356,306 +476,179 @@ def test_jira_auth():
             "message": f"Erreur lors du test d'authentification: {str(e)}"
         }), 500
 
-@app.route("/force-add-buttons-to-all-issues")
-def force_add_buttons_to_all_issues():
-    """Force l'ajout de commentaires avec des liens pour tous les tickets du projet"""
-    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
-    jql = f"project = {JIRA_PROJECT_KEY} ORDER BY updated DESC"
-    
-    params = {
-        "jql": jql,
-        "maxResults": 50
-    }
-    
+@app.route("/force-install")
+def force_install():
+    """Force la création d'un nouveau descripteur et guide l'utilisateur pour la réinstallation"""
     try:
-        api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/search"
-        logger.info(f"Récupération des tickets avec JQL: {jql}")
-        response = requests.get(api_endpoint, auth=auth, params=params)
-        
-        if response.status_code != 200:
-            error_msg = f"Erreur lors de la récupération des tickets: {response.status_code} - {response.text}"
-            logger.error(error_msg)
-            return jsonify({
-                "success": False,
-                "message": error_msg
-            }), 400
-        
-        data = response.json()
-        issues = data.get("issues", [])
-        
-        logger.info(f"Nombre de tickets trouvés: {len(issues)}")
-        
-        if not issues:
-            return jsonify({
-                "success": True,
-                "message": "Aucun ticket trouvé dans le projet"
-            })
-        
-        results = []
-        for issue in issues:
-            issue_key = issue["key"]
-            # Vérifier si le ticket a déjà un commentaire QaliLab AI
-            comments_url = f"https://{JIRA_BASE_URL}/rest/api/2/issue/{issue_key}/comment"
-            comments_response = requests.get(comments_url, auth=auth)
-            
-            skip_issue = False
-            if comments_response.status_code == 200:
-                comments = comments_response.json().get("comments", [])
-                for comment in comments:
-                    if "QaliLab AI" in comment.get("body", ""):
-                        logger.info(f"Le ticket {issue_key} a déjà un commentaire QaliLab AI")
-                        results.append({
-                            "issue_key": issue_key,
-                            "success": True,
-                            "message": "Commentaire déjà présent",
-                            "skipped": True
-                        })
-                        skip_issue = True
-                        break
-            
-            if not skip_issue:
-                logger.info(f"Ajout d'un commentaire au ticket {issue_key}")
-                success, message = add_comment_button_to_issue(issue_key)
-                results.append({
-                    "issue_key": issue_key,
-                    "success": success,
-                    "message": message,
-                    "skipped": False
-                })
-        
-        successful = sum(1 for r in results if r.get("success") and not r.get("skipped", False))
-        skipped = sum(1 for r in results if r.get("skipped", False))
-        
-        return jsonify({
-            "success": True,
-            "message": f"Traitement terminé. {successful} liens ajoutés, {skipped} tickets ignorés car déjà traités.",
-            "results": results
-        })
-    except Exception as e:
-        error_msg = f"Erreur: {str(e)}"
-        logger.error(error_msg)
-        return jsonify({
-            "success": False,
-            "message": error_msg
-        }), 500
-
-@app.route("/debug-buttons")
-def debug_buttons():
-    """Affiche les informations de débogage pour les boutons"""
-    try:
-        with open('atlassian-connect.json', 'r') as f:
-            descriptor = json.load(f)
-        
-        # Extraction des informations sur les webItems
-        web_items = descriptor.get("modules", {}).get("webItems", [])
-        web_panels = descriptor.get("modules", {}).get("webPanels", [])
-        
-        # Informations sur les configurations
-        jira_base_url = JIRA_BASE_URL
-        
-        # Construction d'URLs de test directes pour chaque webItem
-        test_urls = []
-        for item in web_items:
-            url = item.get("url", "")
-            if url.startswith("/"):
-                url = f"{APP_BASE_URL}{url}"
-            test_urls.append({
-                "key": item.get("key"),
-                "name": item.get("name", {}).get("value", ""),
-                "location": item.get("location"),
-                "test_url": url.replace("{issue.key}", "ACD-5325")
-                                .replace("{issue.summary}", "Test Summary")
-                                .replace("{issue.description}", "Test Description")
-            })
-        
-        # Ajouter des informations sur l'environnement Render
-        render_info = {
-            "render_service_url": APP_BASE_URL,
-            "env_vars_set": {
-                "APP_BASE_URL": bool(os.getenv("APP_BASE_URL")),
-                "PORT": bool(os.getenv("PORT"))
-            }
+        # Générer un nouveau descripteur
+        key_timestamp = int(time.time())
+        new_descriptor = {
+            "name": "QaliLab AI Test",
+            "description": "Test d'installation pour QaliLab AI",
+            "key": f"com.amaniconsulting.qalilab-ai-test-{key_timestamp}",
+            "baseUrl": APP_BASE_URL,
+            "vendor": {
+                "name": "Amani Consulting",
+                "url": f"https://{JIRA_BASE_URL}"
+            },
+            "authentication": {
+                "type": "none"  # Simplifier pour le test
+            },
+            "apiVersion": 1,
+            "lifecycle": {
+                "installed": "/installed",
+                "uninstalled": "/uninstalled"
+            },
+            "scopes": [
+                "read"
+            ],
+            "modules": {
+                "webItems": [
+                    {
+                        "key": "test-button",
+                        "name": {
+                            "value": "Test QaliLab AI"
+                        },
+                        "location": "jira.issue.header-actions",
+                        "url": "/jira-panel?issueKey={issue.key}&language=fr",
+                        "weight": 1000
+                    }
+                ],
+                "generalPages": [
+                    {
+                        "key": "test-page",
+                        "name": {
+                            "value": "Test Page"
+                        },
+                        "url": "/",
+                        "location": "system.top.navigation.bar"
+                    }
+                ]
+            },
+            "context": "jira"
         }
         
-        debug_info = {
-            "web_items": web_items,
-            "web_panels": web_panels,
-            "jira_base_url": jira_base_url,
-            "test_urls": test_urls,
-            "render_info": render_info
-        }
+        # Sauvegarder comme version de test
+        test_descriptor_path = 'test-descriptor.json'
+        with open(test_descriptor_path, 'w') as f:
+            json.dump(new_descriptor, f, indent=2)
         
-        return jsonify(debug_info)
+        install_url = f"{APP_BASE_URL}/test-descriptor.json"
+        
+        # Créer une page HTML avec les instructions
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>QaliLab AI - Force Install</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4>QaliLab AI - Installation forcée</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <p>Un nouveau descripteur de test a été créé. Suivez ces étapes pour installer l'application de test :</p>
+                        </div>
+                        
+                        <ol class="list-group list-group-numbered mb-4">
+                            <li class="list-group-item">Accédez à l'administration Jira</li>
+                            <li class="list-group-item">Allez dans "Gérer les applications" > "Rechercher des applications"</li>
+                            <li class="list-group-item">Cliquez sur "Télécharger une application"</li>
+                            <li class="list-group-item">Collez l'URL suivante : <code class="bg-light p-2">{install_url}</code></li>
+                            <li class="list-group-item">Suivez les instructions pour installer l'application</li>
+                            <li class="list-group-item">Retournez sur un ticket Jira pour vérifier si le bouton "Test QaliLab AI" apparaît</li>
+                        </ol>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{install_url}" target="_blank" class="btn btn-primary">Voir le descripteur de test</a>
+                            <a href="/check-app-status" class="btn btn-secondary">Vérifier le statut de l'application</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/create-help-script", methods=["GET"])
-def create_help_script():
-    """Génère une page avec les instructions pour installer le script d'aide"""
-    
-    bookmarklet_code = f"""
-        javascript:(function(){{
-            try {{
-                const path = window.location.pathname;
-                const issueKeyMatch = path.match(/\\/browse\\/([A-Z]+-\\d+)/);
-                if (issueKeyMatch && issueKeyMatch[1]) {{
-                    const issueKey = issueKeyMatch[1];
-                    window.open('{APP_BASE_URL}/jira-panel?issueKey=' + issueKey, '_blank');
-                }} else {{
-                    alert('Veuillez naviguer vers une page de ticket JIRA pour utiliser cet outil.');
-                }}
-            }} catch(e) {{
-                alert('Erreur: ' + e.message);
-            }}
-        }})();
-    """
-    
-    # Compression du code pour le bookmarklet
-    bookmarklet_code = bookmarklet_code.replace('\n', '').replace('    ', '')
-    
-    return render_template("help_script.html", 
-                          bookmarklet_code=bookmarklet_code,
-                          app_url=APP_BASE_URL,
-                          jira_url=f"https://{JIRA_BASE_URL}")
-
-@app.route("/add-links-to-user-stories", methods=["GET"])
-def add_links_to_user_stories():
-    """Ajoute des liens à toutes les user stories du projet"""
-    # Récupérer les issues de type User Story du projet
-    api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/search"
-    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
-    
-    # JQL pour obtenir toutes les User Stories du projet
-    jql = f"project = {JIRA_PROJECT_KEY} AND issuetype = 'Story' ORDER BY created DESC"
-    
-    params = {
-        "jql": jql,
-        "maxResults": 100  # Augmenté à 100 pour traiter plus de stories
-    }
-    
+@app.route("/test-descriptor.json")
+def test_descriptor():
+    """Sert le descripteur de test"""
     try:
-        response = requests.get(api_endpoint, auth=auth, params=params)
-        if response.status_code != 200:
-            error_msg = f"Erreur lors de la récupération des user stories: {response.status_code} - {response.text}"
-            logger.error(error_msg)
-            return jsonify({"success": False, "message": error_msg}), 400
-            
-        data = response.json()
-        issues = data.get("issues", [])
-        
-        if not issues:
-            return jsonify({
-                "success": True,
-                "message": "Aucune user story trouvée dans le projet"
-            })
-        
-        results = []
-        for issue in issues:
-            issue_key = issue["key"]
-            success, message = add_comment_button_to_issue(issue_key)
-            results.append({
-                "issue_key": issue_key,
-                "success": success,
-                "message": message
-            })
-        
-        successful = sum(1 for r in results if r["success"])
-        failed = len(results) - successful
-        
-        return jsonify({
-            "success": True,
-            "message": f"Traitement terminé. {successful} liens ajoutés avec succès, {failed} échecs.",
-            "results": results
-        })
-        
+        with open('test-descriptor.json', 'r') as f:
+            descriptor = json.load(f)
+        return jsonify(descriptor)
     except Exception as e:
-        error_msg = f"Erreur: {str(e)}"
-        logger.error(error_msg)
-        return jsonify({"success": False, "message": error_msg}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route("/create-bookmarklet-script", methods=["GET"])
-def create_bookmarklet_script():
-    """Génère un script JavaScript qui peut être exécuté dans la console du navigateur"""
+@app.route("/direct-test")
+def direct_test():
+    """Page de test direct de l'application"""
+    issue_key = request.args.get("issueKey", "ACD-5330")
     
-    script = f"""
-// Script d'aide pour QaliLab AI
-(function() {{
-    // Fonction pour ajouter un bouton dans l'interface JIRA
-    function ajouterBoutonQaliLabAI() {{
-        // Chercher des emplacements possibles pour ajouter le bouton
-        const toolsMenu = document.querySelector('[data-testid="issue-actions-container"]');
-        const moreMenu = document.querySelector('.more-actions');
-        const issueHeader = document.querySelector('.issue-header-content');
-        
-        // Récupérer la clé du ticket depuis l'URL
-        const urlMatch = window.location.href.match(/\\/browse\\/([A-Z]+-\\d+)/);
-        const issueKey = urlMatch ? urlMatch[1] : '';
-        
-        if (!issueKey) {{
-            console.error('Impossible de trouver la clé du ticket.');
-            return;
-        }}
-        
-        const buttonLink = '{APP_BASE_URL}/jira-panel?issueKey=' + issueKey;
-        
-        // Style CSS pour le bouton
-        const style = document.createElement('style');
-        style.textContent = `
-            .qalilab-button {{
-                background-color: #0052CC;
-                color: white;
-                border: none;
-                border-radius: 3px;
-                padding: 6px 12px;
-                font-size: 14px;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                margin: 5px;
-            }}
-            .qalilab-button:hover {{
-                background-color: #0747A6;
-            }}
-        `;
-        document.head.appendChild(style);
-        
-        // Créer le bouton
-        const button = document.createElement('button');
-        button.className = 'qalilab-button';
-        button.textContent = 'QaliLab AI';
-        button.onclick = function() {{
-            window.open(buttonLink, '_blank');
-        }};
-        
-        // Ajouter le bouton à l'emplacement approprié
-        if (toolsMenu) {{
-            toolsMenu.appendChild(button);
-            console.log('Bouton QaliLab AI ajouté à la barre d\\'outils');
-        }} else if (moreMenu) {{
-            moreMenu.parentNode.insertBefore(button, moreMenu);
-            console.log('Bouton QaliLab AI ajouté près du menu Plus');
-        }} else if (issueHeader) {{
-            issueHeader.appendChild(button);
-            console.log('Bouton QaliLab AI ajouté à l\\'en-tête du ticket');
-        }} else {{
-            console.error('Aucun emplacement trouvé pour ajouter le bouton');
-            alert('QaliLab AI: Impossible de trouver un emplacement pour ajouter le bouton. Veuillez vous assurer que vous êtes sur une page de ticket JIRA.');
-        }}
-    }}
-    
-    // Exécuter la fonction
-    ajouterBoutonQaliLabAI();
-    
-    // Message de confirmation
-    console.log('Script QaliLab AI exécuté avec succès');
-    alert('QaliLab AI: Le bouton a été ajouté à la page. Si vous ne le voyez pas, veuillez rafraîchir la page et réessayer.');
-}})();
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>QaliLab AI - Test Direct</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="container mt-5">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4>QaliLab AI - Test de fonctionnement</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <p><strong>✅ Succès :</strong> Si vous voyez cette page, l'application fonctionne correctement.</p>
+                    </div>
+                    
+                    <h5>Tests disponibles :</h5>
+                    <ul class="list-group mb-4">
+                        <li class="list-group-item">
+                            <a href="/jira-panel?issueKey={issue_key}" target="_blank">
+                                Ouvrir le panneau Jira pour {issue_key}
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="/check-app-status" target="_blank">
+                                Vérifier le statut de l'application
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="/test-jira-auth" target="_blank">
+                                Tester l'authentification Jira
+                            </a>
+                        </li>
+                        <li class="list-group-item">
+                            <a href="/force-install" target="_blank">
+                                Créer une installation de test
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <h5>Diagnostic de l'intégration Jira :</h5>
+                    <p>Si l'application fonctionne correctement ici mais que l'intégration avec Jira pose problème :</p>
+                    <ol>
+                        <li>Vérifiez que vous utilisez bien Jira Cloud (et non Jira Server)</li>
+                        <li>Assurez-vous que l'application est correctement installée dans Jira</li>
+                        <li>Essayez de désinstaller puis réinstaller l'application</li>
+                        <li>Vérifiez que votre utilisateur a les permissions nécessaires</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
     """
-    
-    return render_template("bookmarklet_script.html", 
-                          script=script,
-                          app_url=APP_BASE_URL,
-                          jira_url=f"https://{JIRA_BASE_URL}")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -696,7 +689,7 @@ def index():
                             generated_test=generated_test,
                             jira_return_url=jira_return_url,
                             issue_key=issue_key, 
-                             JIRA_BASE_URL=JIRA_BASE_URL,
+                            JIRA_BASE_URL=JIRA_BASE_URL,
                             APP_BASE_URL=APP_BASE_URL,
                             issue_types=issue_types)
     
@@ -716,7 +709,7 @@ def index():
         
         if story_text:
             prompt = build_prompt(story_text, format_choice, language_choice)
-            generated_test = generate_response(prompt, max_tokens=512)  # Réduit à 512
+            generated_test = generate_response(prompt, max_tokens=512)
         
         issue_types = get_issue_types()
         
@@ -726,46 +719,24 @@ def index():
                             language_choice=language_choice,
                             generated_test=generated_test,
                             jira_return_url=jira_return_url,
-                            issue_key=issue_key,  # Passer la clé de l'issue au template
+                            issue_key=issue_key,
                             JIRA_BASE_URL=JIRA_BASE_URL,
                             APP_BASE_URL=APP_BASE_URL,
                             issue_types=issue_types)
-
-@app.route("/direct-access/<issue_key>")
-def direct_access(issue_key):
-    """Permet d'accéder directement à l'outil avec une clé d'issue"""
-    if not issue_key or not re.match(r'^[A-Z]+-\d+$', issue_key):
-        return jsonify({"error": "Format de clé d'issue invalide"}), 400
-    
-    # Récupérer les informations de l'issue depuis JIRA
-    api_endpoint = f"https://{JIRA_BASE_URL}/rest/api/2/issue/{issue_key}"
-    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
-    
-    try:
-        response = requests.get(api_endpoint, auth=auth)
-        if response.status_code != 200:
-            return jsonify({"error": f"Erreur lors de la récupération de l'issue: {response.status_code}"}), 400
-        
-        issue_data = response.json()
-        description = issue_data.get("fields", {}).get("description", "")
-        
-        # Construire l'URL de redirection
-        jira_return_url = f"https://{JIRA_BASE_URL}/browse/{issue_key}"
-        redirect_url = url_for('index', 
-                              story=description,
-                              issueKey=issue_key,
-                              returnUrl=jira_return_url,
-                              language="fr",
-                              autoGenerate="true")
-        
-        return redirect(redirect_url)
-    except Exception as e:
-        return jsonify({"error": f"Erreur: {str(e)}"}), 500
 
 if __name__ == "__main__":
     # Créer le dossier templates s'il n'existe pas
     if not os.path.exists('templates'):
         os.makedirs('templates')
+        logger.info("Dossier 'templates' créé")
     
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))) # Passer la clé de l'issue au template
-                           
+    # Écrire le fichier de descripteur à jour
+    try:
+        app.route("/atlassian-connect.json")(descriptor)()
+        logger.info("Fichier de descripteur généré avec succès")
+    except Exception as e:
+        logger.error(f"Erreur lors de la génération du fichier de descripteur: {str(e)}")
+    
+    port = int(os.environ.get("PORT", 5000))
+    logger.info(f"Démarrage du serveur sur le port {port}")
+    app.run(host="0.0.0.0", port=port)

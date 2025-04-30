@@ -1,6 +1,6 @@
 {
   "name": "QaliLab AI",
-  "description": "Génère des cas de test et améliore les user stories dans Jira",
+  "description": "Générateur de cas de test pour les user stories Jira",
   "key": "com.amaniconsulting.qalilab-ai",
   "baseUrl": "https://qalilab-ai.onrender.com",
   "vendor": {
@@ -11,6 +11,10 @@
     "type": "jwt"
   },
   "apiVersion": 1,
+  "lifecycle": {
+    "installed": "/installed",
+    "uninstalled": "/uninstalled"
+  },
   "scopes": [
     "read",
     "write"
@@ -18,12 +22,22 @@
   "modules": {
     "webItems": [
       {
-        "key": "test-generator-item-top",
+        "key": "qalilab-tools-button",
         "name": {
-          "value": "Générer/Modifier User Story"
+          "value": "Générer des tests"
         },
         "location": "jira.issue.tools",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr",
+        "url": "/jira-panel?issueKey={issue.key}",
+        "target": {
+          "type": "dialog",
+          "options": {
+            "width": "85%",
+            "height": "85%"
+          }
+        },
+        "tooltip": {
+          "value": "Générer des cas de test pour cette User Story"
+        },
         "conditions": [
           {
             "condition": "user_is_logged_in"
@@ -31,43 +45,56 @@
         ]
       },
       {
-        "key": "test-generator-item-more",
+        "key": "qalilab-header-button",
         "name": {
-          "value": "Générer/Modifier User Story"
+          "value": "Générer des tests"
         },
-        "location": "jira.issue.more",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr"
+        "location": "jira.issue.header-actions",
+        "url": "/jira-panel?issueKey={issue.key}",
+        "tooltip": {
+          "value": "Générer des cas de test pour cette User Story"
+        },
+        "conditions": [
+          {
+            "condition": "user_is_logged_in"
+          }
+        ]
       }
     ],
     "webPanels": [
       {
-        "key": "test-generator-panel",
+        "key": "qalilab-right-panel",
         "name": {
           "value": "QaliLab AI"
         },
         "location": "atl.jira.view.issue.right.context",
-        "url": "/jira-panel?issueKey={issue.key}&summary={issue.summary}&description={issue.description}&language=fr",
-        "weight": 100,
-        "headers": {
-          "X-Frame-Options": "SAMEORIGIN",
-          "Content-Security-Policy": "frame-ancestors 'self' *.atlassian.net"
-        }
+        "url": "/jira-panel?issueKey={issue.key}",
+        "layout": {
+          "width": "100%",
+          "height": "100%"
+        },
+        "conditions": [
+          {
+            "condition": "user_is_logged_in"
+          }
+        ]
       }
     ],
     "generalPages": [
       {
-        "key": "test-generator-page",
+        "key": "qalilab-main-page",
         "name": {
           "value": "QaliLab AI"
         },
         "url": "/",
-        "location": "system.top.navigation.bar"
+        "location": "jira.top.navigation.bar",
+        "conditions": [
+          {
+            "condition": "user_is_logged_in"
+          }
+        ]
       }
     ]
   },
-  "lifecycle": {
-    "installed": "/installed",
-    "uninstalled": "/uninstalled"
-  },
-  "context": "jira"
+  "enableLicensing": false
 }
