@@ -732,8 +732,11 @@ if __name__ == "__main__":
     
     # Écrire le fichier de descripteur à jour
     try:
-        app.route("/atlassian-connect.json")(descriptor)()
-        logger.info("Fichier de descripteur généré avec succès")
+        # Utiliser le contexte d'application pour générer le descripteur
+        with app.app_context():
+            # Créer directement le descripteur au lieu d'appeler la route
+            desc_content = descriptor()
+            logger.info("Fichier de descripteur généré avec succès")
     except Exception as e:
         logger.error(f"Erreur lors de la génération du fichier de descripteur: {str(e)}")
     
