@@ -104,6 +104,21 @@
             bottom: 5px;
             right: 10px;
         }
+        .diagnostic-panel {
+            background-color: #FFE5E5;
+            border: 1px solid #FFB3B3;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 3px;
+        }
+        .debug-info {
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -114,7 +129,7 @@
                     <i class="fas fa-robot text-primary"></i>
                     QaliLab AI
                 </a>
-                <span class="app-version">v1.1</span>
+                <span class="app-version">v1.3</span>
             </div>
         </nav>
 
@@ -189,6 +204,22 @@
                             </div>
                             <p>Génération en cours, veuillez patienter...</p>
                         </div>
+
+                        <!-- Panneau de diagnostic -->
+                        {% if issue_key %}
+                        <div class="diagnostic-panel mt-3">
+                            <h6><i class="fas fa-tools"></i> Diagnostics</h6>
+                            <div class="mb-2">
+                                <button class="btn btn-sm btn-outline-danger" onclick="runDiagnostics()">
+                                    <i class="fas fa-stethoscope"></i> Tester l'accès au ticket
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning ms-2" onclick="verifyApiToken()">
+                                    <i class="fas fa-key"></i> Vérifier les permissions
+                                </button>
+                            </div>
+                            <div id="diagnosticResults" class="debug-info" style="display: none;"></div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -302,6 +333,9 @@
                     updateJiraBtn.disabled = true;
                     updateJiraBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mise à jour...';
                     
+                    console.log('Issue Key envoyée:', issueKey);
+                    console.log('Description:', generatedTest.substring(0, 100) + '...');
+                    
                     fetch('/update_jira_story', {
                         method: 'POST',
                         headers: {
@@ -312,8 +346,13 @@
                             description: generatedTest
                         })
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('Statut de la réponse:', response.status);
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Données reçues:', data);
+                        
                         updateJiraBtn.disabled = false;
                         updateJiraBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Mettre à jour dans Jira';
                         
@@ -321,7 +360,6 @@
                             document.getElementById('updateSuccess').style.display = 'block';
                             document.getElementById('updateError').style.display = 'none';
                             
-                            // Masquer le message de succès après 5 secondes
                             setTimeout(() => {
                                 document.getElementById('updateSuccess').style.display = 'none';
                             }, 5000);
@@ -329,18 +367,173 @@
                             document.getElementById('updateError').style.display = 'block';
                             document.getElementById('updateError').textContent = 'Erreur: ' + data.message;
                             document.getElementById('updateSuccess').style.display = 'none';
+                            
+                            // Log supplémentaire pour les erreurs 404
+                            if (data.message.includes('404')) {
+                                console.error('Erreur 404 détectée:', {
+                                    issueKey: issueKey,
+                                    message: data.message
+                                });
+                                
+                                // Suggérer d'exécuter les diagnostics
+                                if (confirm('Erreur 404 : Impossible d\'accéder au ticket. Voulez-vous exécuter les diagnostics pour en savoir plus ?')) {
+                                    runDiagnostics();
+                                }
+                            }
                         }
                     })
                     .catch(error => {
+                        console.error('Erreur de connexion:', error);
                         updateJiraBtn.disabled = false;
                         updateJiraBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Mettre à jour dans Jira';
                         document.getElementById('updateError').style.display = 'block';
-                        document.getElementById('updateError').textContent = 'Erreur: ' + error.message;
-                        document.getElementById('updateSuccess').style.display = 'none';
+                        document.getElementById('updateError').textContent = 'Erreur de connexion: ' + error.message;
                     });
                 });
             }
         });
+        
+        // Fonction de diagnostic
+        function runDiagnostics() {
+            const issueKey = document.getElementById('issueKey').value;
+            const resultsDiv = document.getElementById('diagnosticResults');
+            
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exécution des diagnostics...';
+            
+            Promise.all([
+                // Test d'accès au ticket
+                fetch(`/test-issue-access/${issueKey}`)
+                    .then(response => response.json())
+                    .then(data => ({
+                        test: 'Accès au ticket',
+                        success: data.success,
+                        details: data,
+                        message: data.success ? 'Accès réussi' : data.error || data.message
+                    }))
+                    .catch(error => ({
+                        test: 'Accès au ticket',
+                        success: false,
+                        message: error.message
+                    })),
+                
+                // Test des permissions de mise à jour
+                fetch('/test-update-permissions')
+                    .then(response => response.json())
+                    .then(data => ({
+                        test: 'Permissions de mise à jour',
+                        success: data.success,
+                        details: data,
+                        message: data.success ? 'Permissions OK' : data.error || data.message
+                    }))
+                    .catch(error => ({
+                        test: 'Permissions de mise à jour',
+                        success: false,
+                        message: error.message
+                    })),
+                
+                // Vérification du token API
+                fetch('/verify-api-token')
+                    .then(response => response.json())
+                    .then(data => ({
+                        test: 'Token API',
+                        success: data.overall_status,
+                        details: data,
+                        message: data.overall_status ? 'Token valide' : 'Problème de token'
+                    }))
+                    .catch(error => ({
+                        test: 'Token API',
+                        success: false,
+                        message: error.message
+                    }))
+            ])
+            .then(results => {
+                resultsDiv.innerHTML = '<h6>Résultats des diagnostics :</h6>';
+                
+                results.forEach(result => {
+                    const statusIcon = result.success ? 
+                        '<i class="fas fa-check-circle text-success"></i>' : 
+                        '<i class="fas fa-times-circle text-danger"></i>';
+                    
+                    resultsDiv.innerHTML += `
+                        <div class="mb-2">
+                            ${statusIcon} <strong>${result.test}</strong>: ${result.message}
+                        </div>
+                    `;
+                    
+                    if (!result.success && result.details) {
+                        resultsDiv.innerHTML += `
+                            <div class="ms-4 mb-2">
+                                <small>${JSON.stringify(result.details, null, 2)}</small>
+                            </div>
+                        `;
+                    }
+                });
+                
+                // Recommandations basées sur les résultats
+                const allSuccess = results.every(r => r.success);
+                if (!allSuccess) {
+                    resultsDiv.innerHTML += `
+                        <div class="alert alert-warning mt-3">
+                            <h6>Recommandations :</h6>
+                            <ul class="mb-0">
+                                ${!results[0].success ? '<li>Vérifiez que l\'ID du ticket est correct</li>' : ''}
+                                ${!results[1].success ? '<li>Vérifiez que l\'utilisateur a les permissions pour modifier les tickets</li>' : ''}
+                                ${!results[2].success ? '<li>Vérifiez que le token API est valide et n\'a pas expiré</li>' : ''}
+                            </ul>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                resultsDiv.innerHTML = `<div class="alert alert-danger">Erreur lors des diagnostics: ${error.message}</div>`;
+            });
+        }
+        
+        // Fonction pour vérifier les permissions
+        function verifyApiToken() {
+            const resultsDiv = document.getElementById('diagnosticResults');
+            
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification des permissions...';
+            
+            fetch('/verify-api-token')
+                .then(response => response.json())
+                .then(data => {
+                    resultsDiv.innerHTML = '<h6>Vérification des permissions :</h6>';
+                    
+                    if (data.user_test.success) {
+                        resultsDiv.innerHTML += `
+                            <div class="mb-2">
+                                <i class="fas fa-check-circle text-success"></i> 
+                                <strong>Token API valide</strong><br>
+                                Utilisateur: ${data.user_test.name} (${data.user_test.email})
+                            </div>
+                        `;
+                    } else {
+                        resultsDiv.innerHTML += `
+                            <div class="mb-2">
+                                <i class="fas fa-times-circle text-danger"></i> 
+                                <strong>Problème avec le token API</strong><br>
+                                ${data.user_test.error}
+                            </div>
+                        `;
+                    }
+                    
+                    if (data.permissions_test.success) {
+                        resultsDiv.innerHTML += `
+                            <div>
+                                <i class="fas fa-check-circle text-success"></i> 
+                                <strong>Permissions disponibles :</strong><br>
+                                <small>${data.permissions_test.available_permissions.join(', ')}</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    resultsDiv.innerHTML = `<div class="alert alert-danger">Erreur: ${error.message}</div>`;
+                });
+        }
     </script>
 </body>
 </html>
