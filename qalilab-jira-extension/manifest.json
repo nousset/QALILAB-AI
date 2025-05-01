@@ -1,30 +1,24 @@
 {
-    "name": "QaliLab AI pour Jira",
-    "version": "1.0",
-    "description": "Générateur de cas de test pour les tickets Jira",
-    "permissions": ["activeTab"],
-    "background": {
-      "service_worker": "background.js"
-    },
-    "action": {
-      "default_title": "QaliLab AI pour Jira",
-      "default_icon": {
-        "16": "icon16.png",
-        "48": "icon48.png",
-        "128": "icon128.png"
-      }
-    },
-    "content_scripts": [
-      {
-        "matches": ["*://*.atlassian.net/browse/*"],
-        "js": ["content.js"],
-        "css": ["style.css"]
-      }
-    ],
-    "icons": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    },
-    "manifest_version": 3
-  }
+  "name": "QaliLab AI pour Jira",
+  "version": "1.0",
+  "description": "Générateur de cas de test pour les tickets Jira",
+  "permissions": ["activeTab"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "QaliLab AI pour Jira",
+    "default_icon": "icon16.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.atlassian.net/browse/*"],
+      "js": ["content.js"],
+      "css": ["style.css"]
+    }
+  ],
+  "icons": {
+    "16": "icon16.png"
+  },
+  "manifest_version": 3
+}

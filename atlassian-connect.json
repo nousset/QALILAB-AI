@@ -1,6 +1,6 @@
 {
   "name": "QaliLab AI",
-  "description": "Générateur de cas de test pour les user stories Jira",
+  "description": "G\u00e9n\u00e9rateur de cas de test pour les user stories Jira",
   "key": "com.amaniconsulting.qalilab-ai",
   "baseUrl": "https://qalilab-ai.onrender.com",
   "vendor": {
@@ -24,7 +24,7 @@
       {
         "key": "qalilab-tools-button",
         "name": {
-          "value": "Générer des tests"
+          "value": "G\u00e9n\u00e9rer des tests"
         },
         "location": "jira.issue.tools",
         "url": "/jira-panel?issueKey={issue.key}",
@@ -36,7 +36,7 @@
           }
         },
         "tooltip": {
-          "value": "Générer des cas de test pour cette User Story"
+          "value": "G\u00e9n\u00e9rer des cas de test pour cette User Story"
         },
         "conditions": [
           {
@@ -47,12 +47,12 @@
       {
         "key": "qalilab-header-button",
         "name": {
-          "value": "Générer des tests"
+          "value": "G\u00e9n\u00e9rer des tests"
         },
         "location": "jira.issue.header-actions",
         "url": "/jira-panel?issueKey={issue.key}",
         "tooltip": {
-          "value": "Générer des cas de test pour cette User Story"
+          "value": "G\u00e9n\u00e9rer des cas de test pour cette User Story"
         },
         "conditions": [
           {
