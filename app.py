@@ -22,7 +22,7 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
-API_URL = os.getenv("API_URL", "https://arrangement-africa-gilbert-competition.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL", "https://gnome-wake-remains-beneficial.trycloudflare.com/v1/chat/completions")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://qalilab-ai.onrender.com")
 
 logger.info(f"Démarrage de l'application QaliLab AI")
