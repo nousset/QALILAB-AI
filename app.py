@@ -95,7 +95,7 @@ def extract_issue_key_from_url(url):
     return ""
 
 def update_jira_story(issue_key, updated_description):
-    """Met à jour la description d'une user story dans Jira avec diagnostic"""
+    """Met à jour la description d'une user story dans Jira avec diagnostic - Ajoute le contenu au lieu de remplacer"""
     # Validation initiale
     if not issue_key or not issue_key.strip():
         logger.error("Clé d'issue manquante ou invalide")
@@ -120,7 +120,7 @@ def update_jira_story(issue_key, updated_description):
     logger.info(f"URL: {api_endpoint}")
     logger.info(f"Authentification: email={JIRA_EMAIL[:3]}***, token={'présent' if JIRA_API_TOKEN else 'absent'}")
     
-    # Étape 1: Vérifier que l'issue existe ET que l'utilisateur a accès en lecture
+    # Étape 1: Récupérer la description actuelle
     try:
         check_response = requests.get(api_endpoint, auth=auth)
         logger.info(f"Vérification d'accès - Status: {check_response.status_code}")
@@ -130,11 +130,19 @@ def update_jira_story(issue_key, updated_description):
             logger.error(error_msg)
             return False, error_msg
         
-        # Vérifier les permissions sur ce ticket
+        # Récupérer les données du ticket et la description actuelle
         issue_data = check_response.json()
+        current_description = issue_data.get('fields', {}).get('description', '')
         logger.info(f"Ticket trouvé: {issue_data.get('key')} - {issue_data.get('fields', {}).get('summary', '')}")
+        
+        # Vérifier si la description existe
+        if current_description:
+            logger.info("Description actuelle trouvée, préparation à l'ajout du nouveau contenu")
+        else:
+            logger.info("Aucune description actuelle trouvée, le nouveau contenu sera la description complète")
+            current_description = ""
     except Exception as e:
-        error_msg = f"Erreur lors de la vérification: {str(e)}"
+        error_msg = f"Erreur lors de la récupération de la description actuelle: {str(e)}"
         logger.error(error_msg)
         return False, error_msg
     
@@ -150,16 +158,27 @@ def update_jira_story(issue_key, updated_description):
     except Exception as e:
         logger.warning(f"Erreur lors de la vérification des permissions: {str(e)}")
     
-    # Étape 3: Tenter la mise à jour
+    # Étape 3: Construire la nouvelle description en combinant l'ancienne et la nouvelle
+    combined_description = current_description
+    
+    # Ajouter une séparation entre l'ancienne et la nouvelle description
+    if current_description:
+        # Ajouter deux lignes vides et un séparateur
+        combined_description += "\n\n--------------------\n\n"
+    
+    # Ajouter la nouvelle description
+    combined_description += updated_description
+    
+    # Étape 4: Mettre à jour avec la description combinée
     payload = {
         "fields": {
-            "description": updated_description
+            "description": combined_description
         }
     }
     
     try:
-        logger.info(f"Envoi de la requête de mise à jour")
-        logger.info(f"Payload: {json.dumps(payload)[:200]}...")
+        logger.info(f"Envoi de la requête de mise à jour avec description combinée")
+        logger.info(f"Taille de la description combinée: {len(combined_description)} caractères")
         
         response = requests.put(
             api_endpoint, 
@@ -172,7 +191,7 @@ def update_jira_story(issue_key, updated_description):
         logger.info(f"Contenu de la réponse: {response.text[:200]}")
         
         if response.status_code in [200, 204]:
-            return True, "Description mise à jour avec succès"
+            return True, "Description mise à jour avec succès (ajout en bas de la description existante)"
         else:
             error_msg = f"Erreur lors de la mise à jour: {response.status_code} - {response.text}"
             logger.error(error_msg)
