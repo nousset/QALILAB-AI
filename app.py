@@ -22,7 +22,7 @@ JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "amaniconsulting.atlassian.net")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "ACD")
-API_URL = os.getenv("API_URL", "https://approximately-cultures-skin-cl.trycloudflare.com/v1/chat/completions")
+API_URL = os.getenv("API_URL", "https://communist-compliant-qc-deliver.trycloudflare.com/v1/chat/completions")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://qalilab-ai.onrender.com")
 
 logger.info(f"Démarrage de l'application QaliLab AI")
@@ -75,7 +75,19 @@ def build_prompt(story_text, format_choice, language_choice="fr"):
         return (
             f"Voici une user story : \"{story_text}\"\n"
             f"En tant qu'assistant de test, génère un scénario de test au format Gherkin "
-            f"(Given/When/Then) en {lang}."
+            f"(Given/When/Then) en {lang}. Chaque scénario doit commencer par 'Scenario:' suivi d'un titre "
+            f"descriptif qui résume l'objectif du scénario. Crée plusieurs scénarios différents avec des "
+            f"titres uniques qui couvrent différents aspects fonctionnels et cas limites. "
+            f"Structure ton résultat comme ceci:\n\n"
+            f"Feature: [Titre de la fonctionnalité basé sur la user story]\n\n"
+            f"Scenario: [Titre descriptif du premier scénario]\n"
+            f"  Given [contexte initial]\n"
+            f"  When [action effectuée]\n"
+            f"  Then [résultat attendu]\n\n"
+            f"Scenario: [Titre descriptif du deuxième scénario]\n"
+            f"  Given [contexte initial]\n"
+            f"  ...\n\n"
+            f"Assure-toi que chaque scénario est clair, concis et testable."
         )
     else:
         return (
@@ -1022,3 +1034,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     logger.info(f"Démarrage du serveur sur le port {port}")
     app.run(host="0.0.0.0", port=port)
+          
