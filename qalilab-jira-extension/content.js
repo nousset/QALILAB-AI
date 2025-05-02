@@ -70,7 +70,7 @@ async function getIssueDescription() {
           description = description.replace(/^\s*User Story\s*/i, '');
           
           // Retourner la description nettoyée
-          console.log('QaliLab AI: Description trouvée:', description.substring(0, 100) + '...');
+          console.log('Générer les tests: Description trouvée:', description.substring(0, 100) + '...');
           return description;
         }
       } catch (e) {
@@ -79,10 +79,10 @@ async function getIssueDescription() {
     }
     
     // Si aucune description n'est trouvée, retourner null
-    console.log('QaliLab AI: Aucune description trouvée');
+    console.log('Générer les tests: Aucune description trouvée');
     return null;
   } catch (error) {
-    console.error('QaliLab AI: Erreur lors de l\'extraction de la description:', error);
+    console.error('Générer les tests: Erreur lors de l\'extraction de la description:', error);
     return null;
   }
 }
@@ -128,10 +128,10 @@ function addQaliLabButton() {
     button.id = 'qalilab-btn';
     button.className = 'qalilab-button';
     button.target = '_blank';
-    button.title = 'Générer des cas de test avec QaliLab AI';
+    button.title = 'Générer des cas de test avec Générer les tests';
     
     // Ajouter l'icône et le texte
-    button.innerHTML = '<span class="qalilab-icon">🧪</span> QaliLab AI';
+    button.innerHTML = '<span class="qalilab-icon">🧪</span> Générer les tests';
     
     // Mettre à jour le lien à chaque clic pour capturer le contenu actuel
     button.addEventListener('click', async function(e) {
@@ -142,10 +142,10 @@ function addQaliLabButton() {
         const description = await getIssueDescription();
         const url = buildQalilabUrl(issueKey, description);
         
-        console.log('QaliLab AI: URL générée:', url);
+        console.log('Générer les tests: URL générée:', url);
         window.open(url, '_blank');
       } catch (error) {
-        console.error('QaliLab AI: Erreur lors de la génération de l\'URL:', error);
+        console.error('Générer les tests: Erreur lors de la génération de l\'URL:', error);
         // Fallback: ouvrir avec juste l'ID du ticket
         const fallbackUrl = buildQalilabUrl(issueKey, null);
         window.open(fallbackUrl, '_blank');
@@ -165,7 +165,7 @@ function addQaliLabButton() {
       document.body.appendChild(button);
     }
     
-    console.log('QaliLab AI: Bouton ajouté avec succès');
+    console.log('Générer les tests: Bouton ajouté avec succès');
   }
 }
 
@@ -199,7 +199,7 @@ chrome.runtime.onMessage.addListener(async (message) => {
         const description = await getIssueDescription();
         window.open(buildQalilabUrl(issueKey, description), '_blank');
       } catch (error) {
-        console.error('QaliLab AI: Erreur:', error);
+        console.error('Générer les tests: Erreur:', error);
         window.open(buildQalilabUrl(issueKey, null), '_blank');
       }
     } else {
@@ -212,4 +212,4 @@ chrome.runtime.onMessage.addListener(async (message) => {
 init();
 
 // Log pour le débogage
-console.log('QaliLab AI: Extension chargée avec extraction de description');
+console.log('Générer les tests: Extension chargée avec extraction de description');

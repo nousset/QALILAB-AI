@@ -1,5 +1,5 @@
 {
-  "name": "QaliLab AI pour Jira",
+  "name": "Générer les tests pour Jira",
   "version": "1.0",
   "description": "Générateur de cas de test pour les tickets Jira",
   "permissions": ["activeTab"],
@@ -7,7 +7,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "QaliLab AI pour Jira",
+    "default_title": "Générer les tests pour Jira",
     "default_icon": "icon16.png"
   },
   "content_scripts": [
